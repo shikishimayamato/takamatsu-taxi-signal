@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""あなぶきアリーナ香川の公開催事の事実を取得する軽量試作。
+"""公式催事のメタデータ取得: あなぶきアリーナ香川 + サンメッセ香川。
 
-開催日・開演時刻のみを抽出する。終演時刻を推測してはならない。
-サイトの利用規約、robots.txt、掲載形態によっては取得できない。
-取得に失敗した場合は既存の保存データを壊さない。
+公表された日程・開始・開催終了時刻のみを取得し、乗車需要は推測しない。
+ソースの一方が取得不能なら公開済みの直近データを補助的に保持。
+両方取得不能で有効なバックアップがないときは失敗させ、空データを公開しない。
+サイト利用条件とrobots.txtを尊重し、低頻度の取得に限る。
 """
 from __future__ import annotations
 import hashlib
@@ -11,7 +12,8 @@ import json
 import re
 import sys
 import time
-from datetime import datetime, timedelta, date, timezone
+import unicodedata
+from datetime import datetime, timedelta, date
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
@@ -21,161 +23,319 @@ import requests
 from bs4 import BeautifulSoup
 
 JST = ZoneInfo('Asia/Tokyo')
-ROOT = 'https://kagawa-arena.com/'
+ARENA = 'https://kagawa-arena.com/'
+SUNMESSE = 'https://www.sunmesse.com/'
+SOURCES = {'arena': ARENA, 'sunmesse': SUNMESSE}
+PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.2 (non-commercial event metadata demo; source links; low frequency)'
-ROBOTS = None
+USER_AGENT = 'TakamatsuTaxiSignal/0.3 (+public source attribution; twice-daily metadata fetch)'
 SESSION = requests.Session()
 SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
+ROBOTS: dict[str, RobotFileParser] = {}
 
 
-def respect_robots(url: str) -> bool:
-    global ROBOTS
-    rp = ROBOTS
-    try:
-        if rp is None:
-            rp = RobotFileParser()
-            rp.set_url(urljoin(ROOT, 'robots.txt'))
+def can_fetch(url: str) -> bool:
+    parsed = urlparse(url)
+    origin = f'{parsed.scheme}://{parsed.netloc}/'
+    if origin not in SOURCES.values():
+        raise ValueError('許可されていない公式サイト: '+origin)
+    if origin not in ROBOTS:
+        rp = RobotFileParser()
+        rp.set_url(urljoin(origin, 'robots.txt'))
+        try:
             rp.read()
-            ROBOTS = rp
-        return rp.can_fetch(USER_AGENT, url)
-    except Exception as exc:
-        print(f'robots.txt確認失敗: {exc}', file=sys.stderr)
-        return False  # fail closed
+        except Exception as exc:
+            raise PermissionError(f'robots.txtを確認できません: {origin} / {exc}') from exc
+        ROBOTS[origin] = rp
+    return ROBOTS[origin].can_fetch(USER_AGENT, url)
 
 
 def get_html(url: str) -> str:
-    if not url.startswith(ROOT):
-        raise ValueError('許可されていないドメイン')
-    if not respect_robots(url):
-        raise PermissionError(f'robots.txt未確認またはアクセス不可: {url}')
-    resp = SESSION.get(url, timeout=18)
-    resp.raise_for_status()
-    if len(resp.content) > 2_000_000:
-        raise ValueError('ページ容量が大きすぎます')
-    return resp.text
+    if not can_fetch(url):
+        raise PermissionError('robots.txtで取得が許可されていません: '+url)
+    r = SESSION.get(url, timeout=22)
+    r.raise_for_status()
+    if len(r.content) > 2_000_000:
+        raise ValueError('ページが2MBを超えています')
+    return r.text
 
 
-def discover_links(html: str) -> list[str]:
+def stable_id(venue: str, title: str, day: str) -> str:
+    title = re.sub(r'[\s\u3000]+', '', unicodedata.normalize('NFKC', title))
+    return hashlib.sha256(f'{venue}|{title}|{day}'.encode()).hexdigest()[:16]
+
+
+def dedupe(records: list[dict]) -> list[dict]:
+    """同一施設、同一名称、同一開催日の重複を取り除く。"""
+    by_key: dict[tuple, dict] = {}
+    for r in records:
+        key = (r.get('venue'), r.get('date'), re.sub(r'\s+', '', unicodedata.normalize('NFKC', r['title'])))
+        if key not in by_key:
+            by_key[key] = r
+        else:
+            # より多くの時刻情報が載ったレコードを採用
+            old = by_key[key]
+            if int(bool(r.get('startAt'))) + int(bool(r.get('endAt'))) > int(bool(old.get('startAt'))) + int(bool(old.get('endAt'))):
+                by_key[key] = r
+    result = list(by_key.values())
+    for r in result:
+        r['id'] = stable_id(r['venue'], r['title'], r['date'])
+    return sorted(result, key=lambda x: (x['date'], x['venue'], x['title']))
+
+
+# ---- Arena: keep v0.2's successful event-detail flow, with duplicate cleanup ----
+def arena_links(html: str) -> list[str]:
     soup = BeautifulSoup(html, 'html.parser')
-    result: list[str] = []
-    for link in soup.select('a[href]'):
-        url = urljoin(ROOT, link.get('href', ''))
-        if re.fullmatch(r'https://kagawa-arena\.com/event/\d+/?', url) and url not in result:
-            result.append(url)
-    return result[:35]
+    links = []
+    for tag in soup.select('a[href]'):
+        url = urljoin(ARENA, tag.get('href', ''))
+        if re.fullmatch(r'https://kagawa-arena\.com/event/\d+/?', url) and url not in links:
+            links.append(url)
+    return links[:40]
 
 
-def event_dates(text: str, now: datetime) -> list[date]:
-    """サイト本文中の短い掲載期間から開催日候補のみを拾う。"""
-    found: list[date] = []
-    for y, m, d in re.findall(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日', text):
+def arena_dates(text: str, now: datetime) -> list[date]:
+    found = []
+    for yy, mm, dd in re.findall(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日', text):
         try:
-            dt = date(int(y), int(m), int(d))
-            if now.date() - timedelta(days=2) <= dt <= now.date() + timedelta(days=100) and dt not in found:
+            dt = date(int(yy), int(mm), int(dd))
+            if now.date()-timedelta(days=1) <= dt <= now.date()+timedelta(days=120) and dt not in found:
                 found.append(dt)
         except ValueError:
             pass
-    # site header: 11.21土 11.22日 / 12.5土 12.6日
     if not found:
-        for m, d in re.findall(r'(?<!\d)(\d{1,2})[./](\d{1,2})(?!\d)', text[:600]):
-            for year in (now.year, now.year + 1):
+        for mm, dd in re.findall(r'(?<!\d)(\d{1,2})[./](\d{1,2})(?!\d)', text[:600]):
+            for yy in (now.year, now.year+1):
                 try:
-                    dt = date(year, int(m), int(d))
-                    if now.date() - timedelta(days=2) <= dt <= now.date() + timedelta(days=100) and dt not in found:
+                    dt = date(yy, int(mm), int(dd))
+                    if now.date()-timedelta(days=1) <= dt <= now.date()+timedelta(days=120) and dt not in found:
                         found.append(dt)
+                        break
                 except ValueError:
                     continue
-                if dt in found:
-                    break
     return sorted(found)[:10]
 
 
-def start_times(text: str) -> dict[str, str]:
-    """YYYY-MM-DD -> HH:MM。確認できる『開演』『開始』だけ。"""
-    starts: dict[str, str] = {}
-    pat = r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日[^\n]{0,45}?(?:開演|試合開始|開始)\s*[/：:\s]\s*([01]?\d|2[0-3]):([0-5]\d)'
-    for y, m, d, h, minute in re.findall(pat, text):
+def arena_starts(text: str) -> dict[str, str]:
+    pattern = r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日[^\n]{0,45}?(?:開演|試合開始|開始)\s*[/：:\s]\s*([01]?\d|2[0-3]):([0-5]\d)'
+    starts = {}
+    for yy, mm, dd, hh, minute in re.findall(pattern, text):
         try:
-            dt = date(int(y), int(m), int(d))
-            starts[dt.isoformat()] = f'{int(h):02d}:{minute}'
+            starts[date(int(yy),int(mm),int(dd)).isoformat()] = f'{int(hh):02d}:{minute}'
         except ValueError:
             continue
     return starts
 
 
-def parse_event(html: str, url: str, now: datetime) -> list[dict]:
-    soup = BeautifulSoup(html, 'html.parser')
+def parse_arena_event(html: str, url: str, now: datetime) -> list[dict]:
+    soup = BeautifulSoup(html,'html.parser')
     h = soup.find('h1')
     if not h:
         return []
-    title = re.sub(r'\s+', ' ', h.get_text(' ', strip=True)).strip()
-    if not title or len(title) > 160:
+    title = re.sub(r'\s+', ' ', h.get_text(' ',strip=True)).strip()
+    if not title or len(title)>160:
         return []
-    # The first 1,600 chars contain the event's date/start time; footer and nav are ignored.
-    text = soup.get_text('\n', strip=True)
+    text = soup.get_text('\n',strip=True)
     start = text.find(title)
-    relevant = text[max(0, start-120):start+1600] if start >= 0 else text[:1600]
-    dates = event_dates(relevant, now)
-    times = start_times(relevant)
+    relevant = text[max(0,start-120):start+1600] if start>=0 else text[:1600]
+    starts = arena_starts(relevant)
     records = []
-    for day in dates:
-        daystr = day.isoformat()
-        hhmm = times.get(daystr)
-        records.append({
-            'id': hashlib.sha256((url + '|' + daystr).encode()).hexdigest()[:16],
-            'title': title[:110],
-            'date': daystr,
-            'startAt': daystr + 'T' + hhmm + ':00+09:00' if hhmm else None,
-            'endAt': None,  # No assumption about the finish time
-            'venue': 'あなぶきアリーナ香川',
-            'zone': 'station',
-            'source': '公式・あなぶきアリーナ香川',
-            'url': url,
-            'note': '終演・終了時刻は未確認。会場周辺の駐停車規制に注意。',
-        })
+    for day in arena_dates(relevant,now):
+        ds = day.isoformat()
+        st = starts.get(ds)
+        records.append({'id':stable_id('あなぶきアリーナ香川',title,ds), 'title':title[:110],
+            'date':ds,'startAt':f'{ds}T{st}:00+09:00' if st else None,'endAt':None,
+            'endTimeType':None, 'venue':'あなぶきアリーナ香川','zone':'station',
+            'source':'公式・あなぶきアリーナ香川','url':url,
+            'note':'終演時刻未確認。会場周辺での駐停車・送迎規制に注意。'})
     return records
 
 
-def main() -> int:
-    now = datetime.now(JST)
+def fetch_arena(now: datetime) -> list[dict]:
+    links = arena_links(get_html(ARENA))
+    if not links:
+        raise RuntimeError('催事リンク0件（サイト構造を確認）')
+    print(f'アリーナ：詳細リンク {len(links)}件')
+    rows = []
+    failed = []
+    for url in links:
+        try:
+            time.sleep(.6)
+            rows.extend(parse_arena_event(get_html(url),url,now))
+        except Exception as exc:
+            failed.append(f'{url}: {exc}')
+    for err in failed[:5]:
+        print('アリーナ個別取得警告: '+err, file=sys.stderr)
+    if not rows:
+        raise RuntimeError(f'有効な催事0件、取得失敗リンク {len(failed)}件')
+    return dedupe(rows)
+
+
+# ---- Sunmesse: an event listing provides date range and published opening hours ----
+DATE_SPAN = re.compile(
+    r'(?P<year>20\d{2})\.(?P<mo>\d{1,2})\.(?P<day>\d{1,2})\s*\([^)]{0,4}\)\s*[-–—~〜～]\s*'
+    r'(?:(?P<endyear>20\d{2})\.)?(?P<endmo>\d{1,2})\.(?P<endday>\d{1,2})\s*\([^)]{0,4}\)',
+    re.M,
+)
+TIME_RANGE = re.compile(r'(?<!\d)([01]?\d|2[0-3]):([0-5]\d)\s*[～~〜―－–—-]\s*([01]?\d|2[0-3]):([0-5]\d)')
+FINAL_DAY_END = re.compile(r'最終日は?\s*([01]?\d|2[0-3]):([0-5]\d)\s*まで')
+IGNORABLE_TITLE = re.compile(r'^(?:一般|招待|予約|無料|有料|対象|主催|LINK|開催時間|会場|[○◯]|イベント情報|20\d{2}\.)')
+
+
+def normalize_lines(html: str) -> str:
+    soup = BeautifulSoup(html, 'html.parser')
+    for tag in soup(['script','style','nav','footer']):
+        tag.decompose()
+    text = soup.get_text('\n',strip=True)
+    text = unicodedata.normalize('NFKC',text)
+    text = text.replace('\r','')
+    return '\n'.join(x.strip() for x in text.split('\n') if x.strip())
+
+
+def sunmesse_month_url(now: datetime, offset: int) -> str:
+    month0 = (now.year * 12 + now.month-1)+offset
+    return f'{SUNMESSE}event/?date={month0//12:04d}{month0%12+1:02d}'
+
+
+def parse_sunmesse_list(html: str, url: str, now: datetime) -> list[dict]:
+    text = normalize_lines(html)
+    spans = list(DATE_SPAN.finditer(text))
+    records = []
+    for idx, match in enumerate(spans):
+        block = text[match.end():spans[idx+1].start() if idx+1<len(spans) else len(text)]
+        # Limit post-date context so footer and unrelated article text cannot leak into it.
+        block = block[:2200]
+        lines = block.split('\n')
+        title = None
+        for line in lines[:12]:
+            cleaned = line.strip('・●○◯ \t')
+            if not cleaned or IGNORABLE_TITLE.match(cleaned) or cleaned in {'一般・無料','一般・有料','招待・無料','予約・無料','一般','招待'}:
+                continue
+            if re.fullmatch(r'[\s,、・/一-龯]+(?:無料|有料)',cleaned):
+                continue
+            title = cleaned
+            break
+        if not title or not 2<=len(title)<=150:
+            continue
+        try:
+            first = date(int(match['year']),int(match['mo']),int(match['day']))
+            lastyear = int(match['endyear']) if match['endyear'] else int(match['year'])
+            last = date(lastyear,int(match['endmo']),int(match['endday']))
+            if last<first:
+                last = date(lastyear+1,int(match['endmo']),int(match['endday']))
+        except ValueError:
+            continue
+        if (last-first).days>31:
+            print('サンメッセ警告: 31日超の催事は省略 '+title[:30],file=sys.stderr)
+            continue
+        raw_hours = re.search(r'[◯○]?開催時間\s*[:：]\s*([^\n]{1,240})',block)
+        hours = raw_hours.group(1) if raw_hours else ''
+        ranges = TIME_RANGE.findall(hours)
+        start_time, end_time = None, None
+        if ranges:
+            start_time = f'{int(ranges[0][0]):02d}:{ranges[0][1]}'
+            end_time = f'{int(ranges[-1][2]):02d}:{ranges[-1][3]}'
+        end_final = FINAL_DAY_END.search(hours)
+        raw_place = re.search(r'[◯○]?会場\s*[:：]\s*([^\n]{1,110})',block)
+        hall = raw_place.group(1).strip() if raw_place else ''
+        day = first
+        while day<=last:
+            if now.date()-timedelta(days=1)<=day<=now.date()+timedelta(days=120):
+                ds=day.isoformat()
+                last_end = f'{int(end_final[1]):02d}:{end_final[2]}' if end_final and day==last else end_time
+                valid_start = start_time and last_end and start_time<=last_end
+                # Public hours are a scheduled session/window, not proof of when taxis are needed.
+                records.append({'id':stable_id('サンメッセ香川',title,ds),
+                    'title':title[:110],'date':ds,
+                    'startAt':f'{ds}T{start_time}:00+09:00' if valid_start else None,
+                    'endAt':f'{ds}T{last_end}:00+09:00' if valid_start else None,
+                    'endTimeType':'公式掲載の開催時間終了' if valid_start else None,
+                    'venue':'サンメッセ香川','zone':'sunmesse',
+                    'source':'公式・サンメッセ香川','url':url,
+                    'note':('会場：'+hall+'。 ' if hall else '') + ('開催時間 '+hours[:110]+'。 ' if hours else '開催時間未確認。 ') + '終了時刻は退場集中や乗車需要を保証しません。'})
+            day += timedelta(days=1)
+    return dedupe(records)
+
+
+def fetch_sunmesse(now: datetime) -> list[dict]:
+    rows = []
+    successful_pages = 0
+    for offset in range(3):
+        url = sunmesse_month_url(now,offset)
+        try:
+            html = get_html(url)
+            successful_pages += 1
+            found = parse_sunmesse_list(html,url,now)
+            print(f'サンメッセ：{url} → {len(found)}件（日別）')
+            rows.extend(found)
+        except Exception as exc:
+            print(f'サンメッセ月間ページ警告: {url}: {exc}',file=sys.stderr)
+        if offset < 2:
+            time.sleep(.8)
+    if successful_pages==0:
+        raise RuntimeError('サンメッセの月間ページを取得できませんでした')
+    if not rows:
+        raise RuntimeError('サンメッセの催事情報を抽出できませんでした（仕様変更等を確認）')
+    return dedupe(rows)
+
+
+def read_backup(now: datetime) -> dict:
+    # The Pages artifact is not committed back to the git repo; fetch its last published data.
     try:
-        home = get_html(ROOT)
-        links = discover_links(home)
-        print(f'催事詳細へのリンク: {len(links)} 件')
-        if not links:
-            raise RuntimeError('催事リンクが見つかりません。サイトの構造を確認してください。')
-        records: list[dict] = []
-        errs = []
-        for url in links:
-            try:
-                time.sleep(0.8)
-                records.extend(parse_event(get_html(url), url, now))
-            except Exception as exc:
-                errs.append(f'{url}: {exc}')
-        if not records:
-            raise RuntimeError('有効な開催日が見つかりません。旧データを維持します。')
-        uniq = {r['id']: r for r in records}
-        rows = sorted(uniq.values(), key=lambda r: (r['date'], r['title']))[:160]
-        payload = {
-            'schema': 1,
-            'updatedAt': now.isoformat(timespec='seconds'),
-            'source': ROOT,
-            'sourceName': 'あなぶきアリーナ香川（公式）',
-            'verifiedFinishTime': False,
-            'events': rows,
-            'partial': bool(errs),
-        }
-        OUT.parent.mkdir(parents=True, exist_ok=True)
-        OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf8')
-        print(f'保存: {OUT} / {len(rows)} 件')
-        for err in errs:
-            print('注意：' + err, file=sys.stderr)
-        return 0
+        r=SESSION.get(PUBLIC_BACKUP,timeout=12,params={'v':now.strftime('%Y%m%d%H%M')})
+        r.raise_for_status()
+        if len(r.content)>600_000:
+            return {}
+        content=r.json()
+        if content.get('schema')==1 and isinstance(content.get('events'),list) and len(content['events'])<=350:
+            return content
     except Exception as exc:
-        print('取得失敗: ' + str(exc), file=sys.stderr)
+        print(f'前回公開データの取得不可: {exc}',file=sys.stderr)
+    return {}
+
+
+def main() -> int:
+    now=datetime.now(JST)
+    previous = read_backup(now)
+    results: list[dict] = []
+    statuses = []
+    for key, fetcher, venue in [('arena',fetch_arena,'あなぶきアリーナ香川'),('sunmesse',fetch_sunmesse,'サンメッセ香川')]:
+        try:
+            rows=fetcher(now)
+            rows=dedupe(rows)
+            results.extend(rows)
+            statuses.append({'venue':venue,'status':'ok','count':len(rows),'checkedAt':now.isoformat(timespec='seconds')})
+            print(f'{venue}: 新規取得 {len(rows)}件')
+        except Exception as exc:
+            print(f'警告: {venue} 取得失敗: {exc}',file=sys.stderr)
+            prev_time=previous.get('updatedAt')
+            try:
+                recent=prev_time and (now-datetime.fromisoformat(prev_time)).total_seconds() < 7*24*3600
+            except (ValueError,TypeError):
+                recent=False
+            old=[]
+            if recent:
+                old=[r for r in previous.get('events',[]) if r.get('venue')==venue and isinstance(r.get('date'),str) and r['date']>= (now.date()-timedelta(days=1)).isoformat()]
+            if old:
+                results.extend(old)
+                statuses.append({'venue':venue,'status':'stale','count':len(old),'checkedAt':now.isoformat(timespec='seconds')})
+                print(f'注意: {venue} は前回公開データを {len(old)}件 維持',file=sys.stderr)
+            else:
+                statuses.append({'venue':venue,'status':'error','count':0,'checkedAt':now.isoformat(timespec='seconds')})
+    results=dedupe(results)[:300]
+    if not results:
+        print('エラー: 有効な催事が0件のため更新しません。現在公開済みのサイトを維持します。',file=sys.stderr)
         return 1
+    payload={'schema':1,'updatedAt':now.isoformat(timespec='seconds'),
+             'source':'複数公式サイト','sourceName':'あなぶきアリーナ香川・サンメッセ香川（公式）',
+             'verifiedFinishTime':False,'events':results,
+             'sources':statuses,
+             'partial':any(x['status']!='ok' for x in statuses)}
+    OUT.parent.mkdir(parents=True,exist_ok=True)
+    OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+    print(f'保存: {OUT} / {len(results)}件 / '+', '.join(f"{x['venue']}:{x['status']} {x['count']}件" for x in statuses))
+    return 0
 
 
-if __name__ == '__main__':
+if __name__=='__main__':
     raise SystemExit(main())
