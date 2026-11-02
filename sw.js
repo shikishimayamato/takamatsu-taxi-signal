@@ -1,4 +1,4 @@
-const CACHE='takamatsu-taxi-signal-v02-1';
+const CACHE='takamatsu-taxi-signal-v03-1';
 const LOCAL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(LOCAL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('takamatsu-taxi-signal-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
