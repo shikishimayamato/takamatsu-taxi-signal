@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""公式催事のメタデータ取得: あなぶきアリーナ香川 + サンメッセ香川。
+"""公式催事のメタデータ取得: あなぶきアリーナ香川 + サンポートホール高松。
 
 公表された日程・開始・開催終了時刻のみを取得し、乗車需要は推測しない。
 ソースの一方が取得不能なら公開済みの直近データを補助的に保持。
@@ -25,18 +25,19 @@ from bs4 import BeautifulSoup
 JST = ZoneInfo('Asia/Tokyo')
 ARENA = 'https://kagawa-arena.com/'
 SUNMESSE = 'https://www.sunmesse.com/'
+SUNPORT = 'https://www.sunport-hall.jp/'
 # 公式施設サイトの同一内容を公開しているサブドメイン。
 # TLS 証明書エラーの場合のみ次のホストを試す。各ホストのrobots.txtは個別に検証する。
 SUNMESSE_HOSTS = (SUNMESSE, 'https://pop.sunmesse.com/', 'https://ftp.sunmesse.com/')
-SOURCES = {'arena': ARENA, 'sunmesse': SUNMESSE}
-ALLOWED_ORIGINS = frozenset((ARENA,) + SUNMESSE_HOSTS)
+SOURCES = {'arena': ARENA, 'sunport': SUNPORT} # サンメッセは調査中につき停止
+ALLOWED_ORIGINS = frozenset((ARENA, SUNPORT) + SUNMESSE_HOSTS)
 
 class TLSVerifyError(RuntimeError):
     """HTTPS 証明書の検証に失敗。アクセス拒否/robotsの拒否とは区別する。"""
     pass
 PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.3.2 (+public source attribution; twice-daily metadata fetch)'
+USER_AGENT = 'TakamatsuTaxiSignal/0.4 (+public source attribution; twice-daily metadata fetch)'
 SESSION = requests.Session()
 SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
 ROBOTS: dict[str, RobotFileParser] = {}
@@ -324,6 +325,115 @@ def fetch_sunmesse(now: datetime) -> list[dict]:
     return dedupe(rows)
 
 
+
+# ---- Sunport Hall Takamatsu: official, public hall calendar; Sunmesse is paused ----
+# 公式ページの各催事には「催事名 / YYYY年M月D日 / 会場 / 時間」が表示される。
+# 配信HTMLのクラス名変更に比較的強いテキスト解析と、詳細リンクの照合を併用。
+SUNPORT_DATE_RE = re.compile(r'^\s*(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:\([^)]{0,12}\))?\s*(.*)$')
+SUNPORT_HALL_RE = re.compile(r'(?:大ホール|第[12]小ホール|市民ギャラリー|コミュニケーションプラザ|国際会議場|会議室|展示場|多目的室|ホール棟)')
+
+
+def sunport_normalize(txt: str) -> str:
+    return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', re.sub(r'([①-⑳])', r' \1 ', txt or ''))).strip()
+
+
+def parse_sunport_calendar(html: str, page_url: str, now: datetime) -> list[dict]:
+    soup = BeautifulSoup(html, 'html.parser')
+    # 主サイト全体の案内メニュー・フッターを混入させない。
+    main = soup.find('main') or soup.find(id='contents') or soup.body or soup
+    for tag in main.select('script,style,nav,footer,header'):
+        tag.decompose()
+    lines = [sunport_normalize(x) for x in main.get_text('\n', strip=True).splitlines()]
+    lines = [x for x in lines if x]
+    links: dict[str,str] = {}
+    for a in main.select('a[href]'):
+        title = sunport_normalize(a.get_text(' ', strip=True))
+        url = urljoin(SUNPORT, a['href'])
+        if (urlparse(url).scheme == 'https' and urlparse(url).hostname == 'www.sunport-hall.jp'
+                and re.search(r'/hall/20\d{2}/[0-9]+\.html$', urlparse(url).path)):
+            links[title] = url
+    out = []
+    for i, line in enumerate(lines):
+        match = SUNPORT_DATE_RE.match(line)
+        if not match:
+            continue
+        try:
+            day = date(int(match[1]), int(match[2]), int(match[3]))
+        except ValueError:
+            continue
+        if not (now.date()-timedelta(days=1) <= day <= now.date()+timedelta(days=120)):
+            continue
+        # 公式カレンダーはイベントタイトルを開催日時の直前に置く。
+        recent_titles = []
+        for old in lines[max(0, i-5):i]:
+            if (2 <= len(old) <= 150 and not SUNPORT_DATE_RE.match(old)
+                    and not re.match(r'^(?:20\d{2}年\d+月|ホールイベント|お知らせ|イベントカレンダー|入場料等|お問合せ)$',old)):
+                recent_titles.append(old)
+        if not recent_titles:
+            continue
+        title = recent_titles[-1]
+        if (title in {'詳しくはこちら', '大ホール', '第1小ホール', '第2小ホール'}
+                or re.fullmatch(r'\d{1,2}', title)):
+            continue
+        # 開催日直後から「入場料等」等の見出し手前までを掲載時刻とする。
+        slot_lines = [match[4]]
+        for future in lines[i+1:i+7]:
+            if future in {'入場料等', 'お問合せ', '料金', '発売'} or SUNPORT_DATE_RE.match(future):
+                break
+            slot_lines.append(future)
+        block = ' '.join(slot_lines)
+        ranges = TIME_RANGE.findall(block)
+        start, end = None, None
+        if ranges:
+            start = f'{int(ranges[0][0]):02d}:{ranges[0][1]}'
+            end = f'{int(ranges[-1][2]):02d}:{ranges[-1][3]}'
+            if start > end:
+                start, end = None, None
+        hall = SUNPORT_HALL_RE.search(block)
+        room = hall.group(0) if hall else ''
+        tag = '関係者のみ（一般来場不可）' if '関係者のみ' in ' '.join(lines[i+1:i+12]) else ''
+        # 複数公演では、最初の開演と最後の掲載終了時刻。連続開催と誤認させない。
+        multiple = len(ranges) > 1
+        note = ('公式掲載の開催時間。' if start and end else '公表時刻未確認。')
+        if multiple: note += ' 複数回公演（時間帯は連続開催ではありません）。'
+        if room: note += f' 会場：{room}。'
+        if tag: note += f' {tag}。'
+        note += ' 掲載終了時刻は実際の退場時刻・タクシー需要を保証しません。'
+        ds = day.isoformat()
+        out.append({'id':stable_id('サンポートホール高松', title, ds),
+             'title':title[:110], 'date':ds,
+             'startAt':f'{ds}T{start}:00+09:00' if start else None,
+             'endAt':f'{ds}T{end}:00+09:00' if end else None,
+             'endTimeType':'公式掲載の催事終了予定' if end else None,
+             'venue':'サンポートホール高松', 'zone':'station',
+             'source':'公式・サンポートホール高松',
+             'url':links.get(title, page_url), 'note':note})
+    return dedupe(out)
+
+
+def fetch_sunport(now: datetime) -> list[dict]:
+    # 月間ページの現在・来月掲載分を対象とし、重複はdedupeで除去。
+    urls = [urljoin(SUNPORT, 'hall/'), urljoin(SUNPORT, 'hall/next.html')]
+    rows = []
+    succeeded = 0
+    for url in urls:
+        try:
+            html = get_html(url)
+            part = parse_sunport_calendar(html, url, now)
+            if not part:
+                print(f'サンポートホール注意: 公開カレンダーから催事を抽出できず: {url}',file=sys.stderr)
+            else:
+                succeeded += 1
+                rows.extend(part)
+                print(f'サンポートホール: {url} から {len(part)}件抽出')
+        except Exception as exc:
+            print(f'サンポートホール月間ページ警告: {url}: {exc}',file=sys.stderr)
+        time.sleep(.5)
+    if not succeeded:
+        raise RuntimeError('サンポートホールの公開カレンダーを取得・解析できませんでした')
+    return dedupe(rows)
+
+
 def read_backup(now: datetime) -> dict:
     # The Pages artifact is not committed back to the git repo; fetch its last published data.
     try:
@@ -344,7 +454,7 @@ def main() -> int:
     previous = read_backup(now)
     results: list[dict] = []
     statuses = []
-    for key, fetcher, venue in [('arena',fetch_arena,'あなぶきアリーナ香川'),('sunmesse',fetch_sunmesse,'サンメッセ香川')]:
+    for key, fetcher, venue in [('arena',fetch_arena,'あなぶきアリーナ香川'),('sunport',fetch_sunport,'サンポートホール高松')]:
         try:
             rows=fetcher(now)
             rows=dedupe(rows)
@@ -367,15 +477,17 @@ def main() -> int:
                 print(f'注意: {venue} は前回公開データを {len(old)}件 維持',file=sys.stderr)
             else:
                 statuses.append({'venue':venue,'status':'error','count':0,'checkedAt':now.isoformat(timespec='seconds')})
+    # サンメッセはSSL問題の解決待ち。今回はアクセスせず、取得結果も公開しない。
+    statuses.append({'venue':'サンメッセ香川','status':'paused','count':0,'checkedAt':now.isoformat(timespec='seconds')})
     results=dedupe(results)[:300]
     if not results:
         print('エラー: 有効な催事が0件のため更新しません。現在公開済みのサイトを維持します。',file=sys.stderr)
         return 1
     payload={'schema':1,'updatedAt':now.isoformat(timespec='seconds'),
-             'source':'複数公式サイト','sourceName':'あなぶきアリーナ香川・サンメッセ香川（公式）',
+             'source':'複数公式サイト','sourceName':'あなぶきアリーナ香川・サンポートホール高松（公式）',
              'verifiedFinishTime':False,'events':results,
              'sources':statuses,
-             'partial':any(x['status']!='ok' for x in statuses)}
+             'partial':any(x['status'] in ('stale','error') for x in statuses)}
     OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
     print(f'保存: {OUT} / {len(results)}件 / '+', '.join(f"{x['venue']}:{x['status']} {x['count']}件" for x in statuses))
