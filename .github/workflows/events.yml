@@ -24,7 +24,7 @@ jobs:
           python-version: '3.12'
       - name: 必要なライブラリを準備
         run: python -m pip install --disable-pip-version-check requests beautifulsoup4
-      - name: 2施設の公式催事を取得（全件取得不可なら公開中止）
+      - name: アリーナとサンポートホールの催事を取得（施設別に結果を記録）
         run: python scripts/fetch_events.py
       - name: GitHub Pagesの公開準備
         uses: actions/configure-pages@v5
