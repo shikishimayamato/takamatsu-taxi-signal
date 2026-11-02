@@ -1,3 +1,26 @@
 {
- "id":"./", "name":"高松タクシー・シグナル", "short_name":"高松Taxi", "description":"高松の天候、街の時間帯、登録した催事に基づく地区別の注目情報（個人検証用）", "start_url":"./", "scope":"./", "display":"standalone", "background_color":"#071b29", "theme_color":"#0d2737", "lang":"ja", "icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},{"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]
+  "id": "./",
+  "name": "高松タクシー・シグナル",
+  "short_name": "CITY SIGNAL",
+  "description": "高松の気象・催事情報を、施設名と推定規模を中心に整理して確認する業務支援PWA（個人検証用）",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#081623",
+  "theme_color": "#081623",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "signal-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "signal-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
