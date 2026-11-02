@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""公式催事のメタデータ取得: あなぶきアリーナ香川 + サンポートホール高松。
+"""公式催事のメタデータ取得 v0.5.1: あなぶきアリーナ香川 + サンポートホール高松。
 
 公表された日程・開始・開催終了時刻のみを取得し、乗車需要は推測しない。
 ソースの一方が取得不能なら公開済みの直近データを補助的に保持。
@@ -37,7 +37,7 @@ class TLSVerifyError(RuntimeError):
     pass
 PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.4.1 (+public source attribution; twice-daily metadata fetch)'
+USER_AGENT = 'TakamatsuTaxiSignal/0.5.1 (+public source attribution; twice-daily metadata fetch)'
 SESSION = requests.Session()
 SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
 ROBOTS: dict[str, RobotFileParser] = {}
@@ -163,40 +163,122 @@ def arena_dates(text: str, now: datetime) -> list[date]:
     return sorted(found)[:10]
 
 
-def arena_starts(text: str) -> dict[str, str]:
-    pattern = r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日[^\n]{0,45}?(?:開演|試合開始|開始)\s*[/：:\s]\s*([01]?\d|2[0-3]):([0-5]\d)'
-    starts = {}
-    for yy, mm, dd, hh, minute in re.findall(pattern, text):
-        try:
-            starts[date(int(yy),int(mm),int(dd)).isoformat()] = f'{int(hh):02d}:{minute}'
-        except ValueError:
+# 公式詳細の見出し「開場時間」「開演時間」「終演時間」を独立して解析する。
+# 「交通規制」などの時刻を公演の終演と誤認しないため、見出し単位で抽出する。
+ARENA_TIME_HEADING = re.compile(
+    r'^(開場時間|開演時間|開始時間|試合開始時間|開催時間|終演時間|終了時間|'
+    r'料金|チケット|公式サイト|お問い合わせ|お問合せ|注意事項|イベント|アクセス)$'
+)
+ARENA_TIME_RE = re.compile(r'(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)')
+ARENA_FULL_DATE = re.compile(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日')
+ARENA_SHORT_DATE = re.compile(r'(?<!\d)(\d{1,2})/(\d{1,2})(?!\d)')
+
+
+def arena_time_sections(text: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    active = None
+    for raw in text.splitlines():
+        line = unicodedata.normalize('NFKC', raw).strip()
+        if not line:
             continue
-    return starts
+        if ARENA_TIME_HEADING.fullmatch(line):
+            active = line if line in {'開場時間','開演時間','開始時間','試合開始時間','開催時間','終演時間','終了時間'} else None
+            if active:
+                sections.setdefault(active, [])
+            continue
+        if active:
+            # 公式サイト・主催者の付帯説明へ誤って読み進めない。
+            if len(sections[active]) >= 18:
+                active = None
+            else:
+                sections[active].append(line)
+    return sections
+
+
+def arena_section_times(lines: list[str], dates: list[date]) -> dict[str, str]:
+    """日付ごとの掲載時刻。複数日で日付のない時刻は推測して割り振らない。"""
+    allowed = {d.isoformat(): d for d in dates}
+    found: dict[str, str] = {}
+    undated: list[str] = []
+    for i, line in enumerate(lines):
+        match = ARENA_TIME_RE.search(line)
+        if not match:
+            continue
+        hhmm = f'{int(match[1]):02d}:{match[2]}'
+        dates_full = ARENA_FULL_DATE.search(line)
+        possible = []
+        if dates_full:
+            try:
+                possible.append(date(*map(int, dates_full.groups())).isoformat())
+            except ValueError:
+                pass
+        else:
+            dates_short = ARENA_SHORT_DATE.search(line)
+            if dates_short:
+                mm, dd = map(int, dates_short.groups())
+                possible.extend(d.isoformat() for d in dates if d.month == mm and d.day == dd)
+        if not possible and i > 0:
+            # 公式HTMLが「11月21日」改行「開演/18:00」と分離しているケース
+            last = lines[i-1]
+            dm = ARENA_FULL_DATE.search(last)
+            if dm:
+                try:
+                    possible.append(date(*map(int, dm.groups())).isoformat())
+                except ValueError:
+                    pass
+        applicable = [k for k in possible if k in allowed]
+        if applicable:
+            for k in applicable:
+                found.setdefault(k, hhmm)
+        else:
+            undated.append(hhmm)
+    if len(dates)==1 and dates[0].isoformat() not in found and undated:
+        found[dates[0].isoformat()] = undated[0]
+    return found
 
 
 def parse_arena_event(html: str, url: str, now: datetime) -> list[dict]:
-    soup = BeautifulSoup(html,'html.parser')
+    soup = BeautifulSoup(html, 'html.parser')
     h = soup.find('h1')
     if not h:
         return []
-    title = re.sub(r'\s+', ' ', h.get_text(' ',strip=True)).strip()
+    title = re.sub(r'\s+', ' ', h.get_text(' ', strip=True)).strip()
     if not title or len(title)>160:
         return []
-    text = soup.get_text('\n',strip=True)
-    start = text.find(title)
-    relevant = text[max(0,start-120):start+1600] if start>=0 else text[:1600]
-    starts = arena_starts(relevant)
+    text = soup.get_text('\n', strip=True)
+    start_pos = text.find(title)
+    relevant = text[max(0,start_pos-120):start_pos+2700] if start_pos>=0 else text[:2700]
+    dates = arena_dates(relevant, now)
+    if not dates:
+        return []
+    sections = arena_time_sections(relevant)
+    doors = arena_section_times(sections.get('開場時間', []), dates)
+    starts = {}
+    for label in ('開演時間', '試合開始時間', '開始時間', '開催時間'):
+        for k, v in arena_section_times(sections.get(label, []), dates).items():
+            starts.setdefault(k, v)
+    ends = {}
+    for label in ('終演時間', '終了時間'):
+        for k, v in arena_section_times(sections.get(label, []), dates).items():
+            ends.setdefault(k, v)
     records = []
-    for day in arena_dates(relevant,now):
+    for day in dates:
         ds = day.isoformat()
-        st = starts.get(ds)
-        records.append({'id':stable_id('あなぶきアリーナ香川',title,ds), 'title':title[:110],
-            'date':ds,'startAt':f'{ds}T{st}:00+09:00' if st else None,'endAt':None,
-            'endTimeType':None, 'venue':'あなぶきアリーナ香川','zone':'station',
-            'source':'公式・あなぶきアリーナ香川','url':url,
-            'note':'終演時刻未確認。会場周辺での駐停車・送迎規制に注意。'})
+        door, st, end = doors.get(ds), starts.get(ds), ends.get(ds)
+        records.append({
+            'id': stable_id('あなぶきアリーナ香川', title, ds),
+            'title': title[:110], 'date': ds,
+            'doorAt': f'{ds}T{door}:00+09:00' if door else None,
+            'startAt': f'{ds}T{st}:00+09:00' if st else None,
+            'endAt': f'{ds}T{end}:00+09:00' if end else None,
+            'endTimeType': '公式掲載の終演時間' if end else None,
+            'venue': 'あなぶきアリーナ香川', 'zone': 'station',
+            'source': '公式・あなぶきアリーナ香川', 'url': url,
+            'note': ('メイン等の催事情報は公式詳細で確認。'
+                     + ('公式掲載の終演時刻。' if end else '終演時刻未公表・未確認。')
+                     + ' 会場周辺での駐停車・送迎規制に注意。')
+        })
     return records
-
 
 def fetch_arena(now: datetime) -> list[dict]:
     links = arena_links(get_html(ARENA))
