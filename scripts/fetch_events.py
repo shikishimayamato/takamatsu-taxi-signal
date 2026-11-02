@@ -25,10 +25,18 @@ from bs4 import BeautifulSoup
 JST = ZoneInfo('Asia/Tokyo')
 ARENA = 'https://kagawa-arena.com/'
 SUNMESSE = 'https://www.sunmesse.com/'
+# 公式施設サイトの同一内容を公開しているサブドメイン。
+# TLS 証明書エラーの場合のみ次のホストを試す。各ホストのrobots.txtは個別に検証する。
+SUNMESSE_HOSTS = (SUNMESSE, 'https://pop.sunmesse.com/', 'https://ftp.sunmesse.com/')
 SOURCES = {'arena': ARENA, 'sunmesse': SUNMESSE}
+ALLOWED_ORIGINS = frozenset((ARENA,) + SUNMESSE_HOSTS)
+
+class TLSVerifyError(RuntimeError):
+    """HTTPS 証明書の検証に失敗。アクセス拒否/robotsの拒否とは区別する。"""
+    pass
 PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.3.1 (+public source attribution; twice-daily metadata fetch)'
+USER_AGENT = 'TakamatsuTaxiSignal/0.3.2 (+public source attribution; twice-daily metadata fetch)'
 SESSION = requests.Session()
 SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
 ROBOTS: dict[str, RobotFileParser] = {}
@@ -37,7 +45,7 @@ ROBOTS: dict[str, RobotFileParser] = {}
 def can_fetch(url: str) -> bool:
     parsed = urlparse(url)
     origin = f'{parsed.scheme}://{parsed.netloc}/'
-    if origin not in SOURCES.values():
+    if origin not in ALLOWED_ORIGINS:
         raise ValueError('許可されていない公式サイト: '+origin)
     if origin not in ROBOTS:
         rp = RobotFileParser()
@@ -61,6 +69,8 @@ def can_fetch(url: str) -> bool:
             else:
                 # 429/5xx/リダイレクト異常/その他は一時的に取得を中止。
                 raise RuntimeError(f'robots.txtを確認できません (HTTP {response.status_code})')
+        except requests.exceptions.SSLError as exc:
+            raise TLSVerifyError(f'robots.txtのTLS証明書検証失敗: {origin} / {exc}') from exc
         except Exception as exc:
             raise PermissionError(f'robots.txtを安全に確認できません: {origin} / {exc}') from exc
         ROBOTS[origin] = rp
@@ -70,7 +80,10 @@ def can_fetch(url: str) -> bool:
 def get_html(url: str) -> str:
     if not can_fetch(url):
         raise PermissionError('robots.txtで取得が許可されていません: '+url)
-    r = SESSION.get(url, timeout=22)
+    try:
+        r = SESSION.get(url, timeout=22)
+    except requests.exceptions.SSLError as exc:
+        raise TLSVerifyError(f'催事ページのTLS証明書検証失敗: {url} / {exc}') from exc
     r.raise_for_status()
     if len(r.content) > 2_000_000:
         raise ValueError('ページが2MBを超えています')
@@ -209,9 +222,9 @@ def normalize_lines(html: str) -> str:
     return '\n'.join(x.strip() for x in text.split('\n') if x.strip())
 
 
-def sunmesse_month_url(now: datetime, offset: int) -> str:
+def sunmesse_month_url(now: datetime, offset: int, origin: str = SUNMESSE) -> str:
     month0 = (now.year * 12 + now.month-1)+offset
-    return f'{SUNMESSE}event/?date={month0//12:04d}{month0%12+1:02d}'
+    return f'{origin}event/?date={month0//12:04d}{month0%12+1:02d}'
 
 
 def parse_sunmesse_list(html: str, url: str, now: datetime) -> list[dict]:
@@ -275,22 +288,37 @@ def parse_sunmesse_list(html: str, url: str, now: datetime) -> list[dict]:
 
 
 def fetch_sunmesse(now: datetime) -> list[dict]:
+    """証明書検証が失敗した場合だけ、公式サイトの別ホストで再試行する。
+
+    ホスト毎のrobots.txtを確認する。取得拒否/HTTPエラーなら他ホストへ逃げない。
+    SSL証明書の検証を無効にはしない。
+    """
     rows = []
     successful_pages = 0
+    current_origin = SUNMESSE
     for offset in range(3):
-        url = sunmesse_month_url(now,offset)
-        try:
-            html = get_html(url)
-            successful_pages += 1
-            found = parse_sunmesse_list(html,url,now)
-            print(f'サンメッセ：{url} → {len(found)}件（日別）')
-            rows.extend(found)
-        except Exception as exc:
-            print(f'サンメッセ月間ページ警告: {url}: {exc}',file=sys.stderr)
+        candidates = (current_origin,) + tuple(x for x in SUNMESSE_HOSTS if x != current_origin)
+        for origin in candidates:
+            url = sunmesse_month_url(now, offset, origin)
+            try:
+                html = get_html(url)
+                current_origin = origin
+                successful_pages += 1
+                found = parse_sunmesse_list(html, url, now)
+                print(f'サンメッセ：接続成功 {origin} / {len(found)}件（日別）')
+                rows.extend(found)
+                break
+            except TLSVerifyError as exc:
+                print(f'サンメッセTLS診断: {origin} の証明書検証に失敗。別ホストを確認: {exc}',file=sys.stderr)
+                continue
+            except Exception as exc:
+                # robots.txtの拒否や403/429等なら別ドメインに迂回しない。
+                print(f'サンメッセ月間ページ警告: {url}: {exc}',file=sys.stderr)
+                break
         if offset < 2:
             time.sleep(.8)
-    if successful_pages==0:
-        raise RuntimeError('サンメッセの月間ページを取得できませんでした')
+    if successful_pages == 0:
+        raise RuntimeError('サンメッセの月間ページを安全に取得できません。全候補の証明書・robots.txtを確認してください')
     if not rows:
         raise RuntimeError('サンメッセの催事情報を抽出できませんでした（仕様変更等を確認）')
     return dedupe(rows)
