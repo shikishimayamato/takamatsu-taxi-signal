@@ -37,7 +37,7 @@ class TLSVerifyError(RuntimeError):
     pass
 PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.4 (+public source attribution; twice-daily metadata fetch)'
+USER_AGENT = 'TakamatsuTaxiSignal/0.4.1 (+public source attribution; twice-daily metadata fetch)'
 SESSION = requests.Session()
 SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
 ROBOTS: dict[str, RobotFileParser] = {}
@@ -88,6 +88,22 @@ def get_html(url: str) -> str:
     r.raise_for_status()
     if len(r.content) > 2_000_000:
         raise ValueError('ページが2MBを超えています')
+    # Content-Type が charset を省略すると requests は Latin-1 と誤認することがある。
+    # まず HTTP / HTML の明示的指定を尊重し、未指定ならHTMLの meta charset を調べる。
+    # 文字化けすると日付の日本語「年/月/日」を正規表現が見つけられない。
+    header = r.headers.get('Content-Type', '')
+    if 'charset=' not in header.lower():
+        detected = re.search(rb'<meta[^>]+charset\s*=\s*[\"\']?([\w-]+)', r.content[:10000], re.I)
+        if not detected:
+            detected = re.search(rb'<meta[^>]+content\s*=\s*[\"\'][^>]*charset=([\w-]+)', r.content[:10000], re.I)
+        if detected:
+            r.encoding = detected.group(1).decode('ascii', errors='ignore')
+        elif r.encoding is None or r.encoding.lower() in ('iso-8859-1', 'latin-1'):
+            try:
+                r.content.decode('utf-8', errors='strict')
+                r.encoding = 'utf-8'
+            except UnicodeDecodeError:
+                r.encoding = r.apparent_encoding or 'utf-8'
     return r.text
 
 
@@ -411,27 +427,134 @@ def parse_sunport_calendar(html: str, page_url: str, now: datetime) -> list[dict
     return dedupe(out)
 
 
+# v0.4.1: 月間カレンダーの構造や改行に左右されない詳細ページ経由の予備取得。
+SUNPORT_DETAIL_PATH = re.compile(r'^/hall/20\d{2}/[0-9]+\.html$')
+SUNPORT_ANY_DATE = re.compile(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日')
+
+
+def sunport_detail_links(html: str) -> list[tuple[str, str]]:
+    soup = BeautifulSoup(html, 'html.parser')
+    found: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    # 本文の <main> に限定しない。サイトにより予定表が別コンテナにある。
+    for tag in soup.select('a[href]'):
+        uri = urljoin(SUNPORT, tag.get('href', ''))
+        parsed = urlparse(uri)
+        if parsed.hostname not in ('www.sunport-hall.jp', 'sunport-hall.jp'):
+            continue
+        if not SUNPORT_DETAIL_PATH.fullmatch(parsed.path):
+            continue
+        clean_uri = urljoin(SUNPORT, parsed.path.lstrip('/'))
+        title = sunport_normalize(tag.get_text(' ', strip=True))
+        if not title or clean_uri in seen:
+            continue
+        seen.add(clean_uri)
+        found.append((clean_uri, title))
+    return found
+
+
+def parse_sunport_detail(html: str, uri: str, link_title: str, now: datetime) -> list[dict]:
+    soup = BeautifulSoup(html, 'html.parser')
+    for tag in soup(['script', 'style', 'noscript']):
+        tag.decompose()
+    # 明確な日付が書かれた公式の個別催事ページだけを採用する。
+    text = unicodedata.normalize('NFKC', soup.get_text(' ', strip=True))
+    dates = list(SUNPORT_ANY_DATE.finditer(text))
+    if not dates:
+        return []
+    # 個別ページにはタイトルが別表記で出ることもあるため、カレンダーのリンク名を採用。
+    title = sunport_normalize(link_title)
+    if not (2 <= len(title) <= 160):
+        return []
+    # タイトルを起点に「日付と開催時間」の部分を探す。最初の開催日を優先。
+    output: list[dict] = []
+    for m in dates[:5]:
+        try:
+            day = date(int(m[1]), int(m[2]), int(m[3]))
+        except ValueError:
+            continue
+        if not (now.date() - timedelta(days=1) <= day <= now.date() + timedelta(days=120)):
+            continue
+        # 別の文脈の日時を拾わないよう日付後200文字以内の時間帯に限定。
+        after = text[m.end():m.end()+210]
+        # 続く「入場料等」「お問合せ」以降は催事本文ではない。
+        after = re.split(r'入場料等|お問合せ|問い合わせ|料金', after, maxsplit=1)[0]
+        ranges = TIME_RANGE.findall(after)
+        start = end = None
+        if ranges:
+            start = f'{int(ranges[0][0]):02d}:{ranges[0][1]}'
+            end = f'{int(ranges[-1][2]):02d}:{ranges[-1][3]}'
+            if start > end:
+                start = end = None
+        ds = day.isoformat()
+        hall = SUNPORT_HALL_RE.search(after)
+        note = '公式個別ページの掲載時間。' if start and end else '開催時刻未確認。'
+        if len(ranges) > 1:
+            note += ' 複数の開催時間帯が記載されています。'
+        if hall:
+            note += f' 会場：{hall.group(0)}。'
+        if '関係者のみ' in text:
+            note += ' 関係者のみ。'
+        note += ' 掲載終了時刻は実際の退場時刻を保証しません。'
+        output.append({
+            'id': stable_id('サンポートホール高松', title, ds),
+            'title': title[:110], 'date': ds,
+            'startAt': f'{ds}T{start}:00+09:00' if start else None,
+            'endAt': f'{ds}T{end}:00+09:00' if end else None,
+            'endTimeType': '公式掲載の催事終了予定' if end else None,
+            'venue': 'サンポートホール高松', 'zone': 'station',
+            'source': '公式・サンポートホール高松', 'url': uri, 'note': note,
+        })
+        # 1つの詳細ページ内の別日付（お問合せ・告知等）の誤認を防ぐ。
+        # 複数日開催を個別に掲載するサイトなので、基本的に最初の該当日だけ。
+        break
+    return output
+
+
 def fetch_sunport(now: datetime) -> list[dict]:
-    # 月間ページの現在・来月掲載分を対象とし、重複はdedupeで除去。
     urls = [urljoin(SUNPORT, 'hall/'), urljoin(SUNPORT, 'hall/next.html')]
-    rows = []
-    succeeded = 0
+    rows: list[dict] = []
+    detail_links: dict[str, str] = {}
+    pages_fetched = 0
     for url in urls:
         try:
             html = get_html(url)
+            pages_fetched += 1
+            print(f'サンポート診断: {url}: HTML {len(html)}文字、日付表記 {html.count("年")}箇所、催事リンク候補 {len(sunport_detail_links(html))}件')
             part = parse_sunport_calendar(html, url, now)
-            if not part:
-                print(f'サンポートホール注意: 公開カレンダーから催事を抽出できず: {url}',file=sys.stderr)
-            else:
-                succeeded += 1
+            if part:
                 rows.extend(part)
-                print(f'サンポートホール: {url} から {len(part)}件抽出')
+                print(f'サンポートホール: 月間ページから {len(part)}件抽出')
+            else:
+                print(f'サンポートホール: 月間ページの直接解析0件（詳細ページ方式で再試行）', file=sys.stderr)
+            for uri, title in sunport_detail_links(html):
+                detail_links[uri] = title
         except Exception as exc:
             print(f'サンポートホール月間ページ警告: {url}: {exc}',file=sys.stderr)
-        time.sleep(.5)
-    if not succeeded:
-        raise RuntimeError('サンポートホールの公開カレンダーを取得・解析できませんでした')
-    return dedupe(rows)
+        time.sleep(.4)
+    # 一覧解析が十分に取れた場合は詳細ページの大量アクセスをしない。
+    # 取りこぼしがある場合だけ件数を抑えて個別ページから補完。
+    if len(rows) < 5:
+        print(f'サンポート診断: 個別催事リンク {len(detail_links)}件、詳細取得を最大40ページ試行')
+        details_ok = 0
+        errors = []
+        for uri, title in list(detail_links.items())[:40]:
+            try:
+                part = parse_sunport_detail(get_html(uri), uri, title, now)
+                if part:
+                    details_ok += 1
+                    rows.extend(part)
+            except Exception as exc:
+                if len(errors) < 5:
+                    errors.append(f'{uri}: {exc}')
+            time.sleep(.45)
+        print(f'サンポート診断: 個別詳細の解析成功 {details_ok}件 / 候補 {min(len(detail_links), 40)}件')
+        for msg in errors:
+            print(f'サンポート詳細ページ警告: {msg}', file=sys.stderr)
+    result = dedupe(rows)
+    if not result:
+        raise RuntimeError(f'サンポート公式ページ取得済 {pages_fetched}、詳細リンク {len(detail_links)}、抽出催事0件。HTML構造・文字コードを要調査')
+    return result
 
 
 def read_backup(now: datetime) -> dict:
