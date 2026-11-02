@@ -28,7 +28,7 @@ SUNMESSE = 'https://www.sunmesse.com/'
 SOURCES = {'arena': ARENA, 'sunmesse': SUNMESSE}
 PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.3 (+public source attribution; twice-daily metadata fetch)'
+USER_AGENT = 'TakamatsuTaxiSignal/0.3.1 (+public source attribution; twice-daily metadata fetch)'
 SESSION = requests.Session()
 SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
 ROBOTS: dict[str, RobotFileParser] = {}
@@ -41,11 +41,28 @@ def can_fetch(url: str) -> bool:
         raise ValueError('許可されていない公式サイト: '+origin)
     if origin not in ROBOTS:
         rp = RobotFileParser()
-        rp.set_url(urljoin(origin, 'robots.txt'))
+        robots_url = urljoin(origin, 'robots.txt')
+        rp.set_url(robots_url)
         try:
-            rp.read()
+            # urllib.robotparser.read() は urllib の証明書ストアを使う。
+            # 催事ページと同じ requests / certifi の通常のTLS検証で取得し、
+            # RobotFileParser に解析させる。verify=False は使用しない。
+            response = SESSION.get(robots_url, timeout=15)
+            if response.status_code == 200:
+                if len(response.content) > 500_000:
+                    raise ValueError('robots.txtが大きすぎます')
+                rp.parse(response.text.splitlines())
+            elif response.status_code == 404:
+                # robots.txt が存在しない場合は制限の記載なしとして扱う。
+                # ページの利用条件やサーバーの応答には引き続き従う。
+                rp.parse([])
+            elif response.status_code in (401, 403):
+                raise PermissionError(f'robots.txtへのアクセス拒否 (HTTP {response.status_code})')
+            else:
+                # 429/5xx/リダイレクト異常/その他は一時的に取得を中止。
+                raise RuntimeError(f'robots.txtを確認できません (HTTP {response.status_code})')
         except Exception as exc:
-            raise PermissionError(f'robots.txtを確認できません: {origin} / {exc}') from exc
+            raise PermissionError(f'robots.txtを安全に確認できません: {origin} / {exc}') from exc
         ROBOTS[origin] = rp
     return ROBOTS[origin].can_fetch(USER_AGENT, url)
 
