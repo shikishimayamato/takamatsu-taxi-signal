@@ -32,7 +32,7 @@ HEAD = '高松市総合体育館'
 TAIL = '西部運動センター'
 HEADERS = {'香川総合体育館', '仏生山公園体育館', '西部運動センター',
            '国分寺橘ノ丘総合運動公園', '亀水運動センター', '牟礼総合体育館'}
-UA = 'TakamatsuTaxiSignal/0.7b (+local community project, 2 requests/day)'
+UA = 'TakamatsuTaxiSignal/0.7e (+local community project, 2 requests/day)'
 MONTH_RX = re.compile(r'令和\s*(\d+)年\s*(\d{1,2})月')
 DAY_RX = re.compile(r'^([0-9]{1,2})日(?:\([月火水木金土日]\))?\s*(.+)$')
 EXTRA_DAY_RX = re.compile(r'[・･]\s*([0-9]{1,2})日\s*$')
@@ -130,6 +130,33 @@ def parse_pdf(data: bytes, year: int, month: int, source_url: str) -> list[dict]
             if part.strip():
                 fixed_records.append({'day': item['day'], 'title': part.strip()})
     records = fixed_records
+    # v0.7e: PDFの省略日付・折返し行で連結された別々の大会を切り離す。
+    # 明らかな催事名の境界だけを分離し、曖昧な部分は推測して追加しない。
+    cleaned = []
+    for item in records:
+        title = tidy(item['title'])
+        title = re.sub(r'^\([月火水木金土日]\)\s*', '', title)
+        # 11/1: 後半に別大会の途中までが入り込むので、確認できる前半のみ採用。
+        title = re.sub(r'\s+第6回南海プライウッド杯兼\s*$', '', title)
+        # 11/8: 「・15日」に続く別催事は15日に登録。
+        next_event = re.search(r'\s*[・･]\s*(15)日\s*(キッズアカデミア.+)$', title)
+        if next_event:
+            first = title[:next_event.start()].strip()
+            if first:
+                cleaned.append({'day': item['day'], 'title': first})
+            cleaned.append({'day': int(next_event.group(1)), 'title': next_event.group(2)})
+            continue
+        # 11/12・21: 日付が省略された二つ目の行事。
+        for anchor in ('フォークダンス舞夢45周年記念大会', '第23回香川県小学生バドミントン普及大会'):
+            pos = title.find(anchor)
+            if pos > 0:
+                first = title[:pos].strip()
+                if first:
+                    cleaned.append({'day': item['day'], 'title': first})
+                title = title[pos:].strip()
+        if title:
+            cleaned.append({'day': item['day'], 'title': title})
+    records = cleaned
     result = []
     for r in records:
         day = r['day']
@@ -172,7 +199,7 @@ def parse_pdf(data: bytes, year: int, month: int, source_url: str) -> list[dict]
                 'title': title, 'venue': VENUE, 'zone': 'station',
                 'url': source_url, 'doorAt': None, 'startAt': None, 'endAt': None,
                 'participants': None,
-                'note': '高松市スポーツ協会・公式月間行事予定（開催時刻・参加人数はこの資料には未掲載）',
+                'note': ('高松市スポーツ協会・公式月間行事予定（開催時刻・参加人数は未掲載）' + ('／催事名が途中で切れている可能性があります。公式PDFで再確認してください。' if title.endswith('香川県') else '')) ,
             })
     # 明らかに空なら成功とみなさない。
     if not result:
