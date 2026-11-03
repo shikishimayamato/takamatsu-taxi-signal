@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # GitHub Actions の日時は UTC。日本時間6:17と18:17
+    # GitHub Actionsの時刻はUTC。日本時間6:17と18:17
     - cron: '17 21,9 * * *'
 permissions:
   contents: read
@@ -30,6 +30,8 @@ jobs:
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
         run: python scripts/fetch_gym.py
+      - name: レクザムホール公式催事を取得
+        run: python scripts/fetch_rexam.py
       - name: GitHub Pagesの公開準備
         uses: actions/configure-pages@v5
       - name: 公開ファイルをアップロード
