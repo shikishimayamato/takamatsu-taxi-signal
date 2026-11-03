@@ -120,6 +120,16 @@ def parse_pdf(data: bytes, year: int, month: int, source_url: str) -> list[dict]
             current['title'] = (current['title'] + ' ' + line).strip()
     if current:
         records.append(current)
+    # v0.7d：公式PDFで日付が省略された別催事の誤結合を防止する。
+    # この既知事例は、同日の「新人体育大会」と「レディース1日バドミントン教室」。
+    # 当該語句が現れた位置でだけ分割し、他の折返し行は勝手に分割しない。
+    fixed_records = []
+    for item in records:
+        pieces = re.split(r'(?=高松市レディース\s*1日バドミントン教室)', item['title'])
+        for part in pieces:
+            if part.strip():
+                fixed_records.append({'day': item['day'], 'title': part.strip()})
+    records = fixed_records
     result = []
     for r in records:
         day = r['day']
