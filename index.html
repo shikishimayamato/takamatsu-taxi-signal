@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#081623"><meta name="description" content="高松市のタクシー乗務員向け、天候と公式催事の開場・開演・終演時刻を整理するPWA（試作版）。">
   <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="signal-192.png"><link rel="apple-touch-icon" href="signal-192.png">
-  <title>高松タクシー・シグナル v0.7b</title>
+  <title>高松タクシー・シグナル v0.7d</title>
   <style>
 /* v0.6: event-first simple layout; map/guess-score sections removed */
 .event-time-band .time-door{color:#b3e6e3;font-weight:650;background:#1d4550;border-radius:5px;padding:4px 8px}.stat-value#nextEv{font-size:clamp(16px,1.55vw,21px);line-height:1.5;overflow-wrap:anywhere}.pulse-stats{margin-top:12px}
@@ -59,17 +59,25 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 @media(max-width:600px){
  .topinner{min-height:51px}.brandicon{height:31px;width:31px}.brand b{font-size:14px}.headright .clock strong{font-size:14px}.weather-strip{margin-top:6px;padding:8px 9px;gap:8px}.wx-primary{flex:1 1 155px}.wx-primary-text strong{font-size:15px}.wx-primary-text small{font-size:10px}.rain-status{flex:1 1 160px}.rain-status small{display:none}.rain-label{font-size:11px;padding:4px 6px}.rain-link{font-size:11px}.wx-buttons{width:100%;justify-content:flex-end}.wx-buttons button{padding:5px 10px;font-size:11px;min-height:32px}.notice-compact{margin:6px 0;padding:6px 8px;font-size:11px}.tabs{gap:5px;margin:6px 0 8px}.tab{padding:8px 10px;font-size:12px;min-height:36px}.focus-panel{padding:11px}.focus-header{flex-direction:row;align-items:center;gap:8px}.focus-header h2{font-size:19px}.focus-header button{width:auto;min-height:34px;padding:5px 9px;font-size:11px}.focus-switch{margin:9px 0;gap:6px}.focus-pill{min-height:34px;padding:6px 12px;font-size:12px}.pulse-stats{grid-template-columns:repeat(2,minmax(0,1fr));margin:6px 0 9px}.pulse-stats>div{padding:7px 9px}.pulse-stats b{font-size:19px}.pulse-stats>div:nth-child(n+3){display:none}.focus-foot{font-size:10px}.status-cards{grid-template-columns:1fr}.status-cards .stat{padding:11px}.status-cards .stat-value{font-size:18px}
 }
+/* v0.7d　高松中心部の強雨状況：画面最上部の省スペース表示 */
+.rain-status .rain-label{white-space:normal;line-height:1.3}
+.rain-status #rainDetail{display:block;font-size:10px;line-height:1.25;opacity:.85}
+.rain-status.rain-danger{background:#6d2328;border-color:#ff9b9b;color:#fff}
+.rain-status.rain-danger .rain-label{color:#fff}
+.rain-status.rain-caution{background:#5a421a;border-color:#f3ca76}
+@media(max-width:640px){.rain-status #rainDetail{font-size:9px}}
+
 </style>
 </head>
 <body>
-<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7b</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
+<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7d</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
     <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub">高松中心部の予報</small></div></div>
-    <div class="rain-status"><strong class="rain-label">強雨：未判定</strong><a class="rain-link" href="https://www.jma.go.jp/bosai/nowc/?contentType=1" target="_blank" rel="noopener noreferrer" aria-label="気象庁の雨雲の動き（公式サイト）を開く">雨雲を確認 ↗</a><small>自動判定は次段階で実装</small></div>
+    <div class="rain-status"><strong class="rain-label" id="rainAlert">強雨：確認中</strong><a class="rain-link" href="https://www.jma.go.jp/bosai/nowc/?contentType=1" target="_blank" rel="noopener noreferrer" aria-label="気象庁の雨雲の動き（公式サイト）を開く">雨雲を確認 ↗</a><small id="rainDetail">気象庁データを取得中</small></div>
     <div class="wx-buttons"><button id="refresh" class="btn secondary sm" type="button">↻ 更新</button><button class="btn secondary sm" id="installTop" type="button">＋ ホームに追加</button></div>
   </section>
-  <div class="notice notice-compact"><strong>運転中は操作しないでください。</strong><details><summary>利用上の注意</summary><p>催事の規模は参考分類です。乗車需要の実測・予測や配車指示ではありません。実際の終了・退場時刻を公式情報で確認し、駐停車規制・客待ち規制・営業区域を守ってください。強雨の自動判定は現在未対応です。</p></details></div>
+  <div class="notice notice-compact"><strong>運転中は操作しないでください。</strong><details><summary>利用上の注意</summary><p>催事の規模は参考分類です。乗車需要の実測・予測や配車指示ではありません。実際の終了・退場時刻を公式情報で確認し、駐停車規制・客待ち規制・営業区域を守ってください。強雨の状態は気象庁レーダーと短時間予測に基づく独自の参考判定です。検出されない場合でも安全を保証しません。</p></details></div>
   <section id="installInfo" class="install"><strong>📲 ホーム画面に追加する</strong><p id="installGuide">ブラウザーのメニューから「ホーム画面に追加」を選んでください。</p><button id="installDo" class="btn sm" hidden>アプリをインストール</button><button id="installHide" class="btn ghost sm">閉じる</button></section>
   <nav class="tabs" role="tablist" aria-label="機能"><button class="tab" data-tab="dash" role="tab" aria-selected="true">◉ 今日</button><button class="tab" data-tab="events" role="tab" aria-selected="false">▦ 催事・登録</button><button class="tab" data-tab="sources" role="tab" aria-selected="false">◇ 情報源</button></nav>
   <section class="view" id="view-dash" role="tabpanel">
@@ -95,7 +103,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
  <p class="smallprint">大会が複数会場にまたがる場合、掲載参加人数を各会場に割り振りません。公式掲載のない宴会は本人の未確認メモとして区別します。</p></section>
  <div class="sectionhead"><div><h2>イベント・突発情報を登録</h2><p>現場で確認した時刻や交通障害を、ご自身の端末にメモできます。</p></div></div><div class="split"><div class="card"><form id="memoForm"><div class="formgrid"><div class="field"><label for="evType">情報の種類</label><select id="evType"><option value="event">催事・終演</option><option value="rail">鉄道の運休・遅延</option><option value="flight">航空便の到着・欠航</option><option value="port">船舶・フェリー</option><option value="road">交通障害</option><option value="other">その他</option></select></div><div class="field"><label for="evZone">対象地区</label><select id="evZone"></select></div></div><div class="field"><label for="evTitle">内容の名前</label><input id="evTitle" required maxlength="72" placeholder="例：アリーナでコンサート（終演時刻を確認）"></div><div class="formgrid"><div class="field"><label for="evAt">発生・終了予定日時</label><input id="evAt" type="datetime-local" required></div><div class="field"><label for="evSize">想定規模（任意）</label><select id="evSize"><option value="small">小・不明</option><option value="medium">中</option><option value="large">大</option></select></div></div><div class="field"><label for="evLink">情報源URL（任意）</label><input id="evLink" type="url" placeholder="https://..."></div><div class="field"><label for="evNote">備考（任意）</label><textarea id="evNote" maxlength="300" placeholder="終了時刻は未確定、交通規制あり、など"></textarea></div><button type="submit" class="btn">＋ この端末に登録する</button><p class="smallprint">各記録は入力者のメモです。公式に確認した情報と混同しないでください。保存はこのブラウザーのみに行われ、端末間同期・自動監視はありません。</p></form></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:9px"><h3 style="margin:0">登録済みメモ</h3><div><button class="btn ghost sm" id="exportEvents">書き出し</button><button class="btn ghost sm" id="importEvents">読み込み</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div><div id="eventList" style="margin-top:15px"></div></div></div></section>
   <section class="view" id="view-sources" role="tabpanel" hidden><div class="sectionhead"><div><h2>公式情報をすばやく開く</h2><p>リンク先の各公式サイトで必ず最新時刻と条件を確認してください。</p></div></div><div id="sourceAll" class="sourcegrid"></div><div class="card" style="margin-top:15px"><h3 style="margin-top:0">自動取得の範囲と限界</h3><p class="tagline">この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。あなぶきアリーナ香川とサンポートホール高松の公式催事日程に加え、高松市総合体育館の月間PDFをGitHub Actionsで定期収集します。体育館の開催時刻・参加人数はPDFにない限り空欄のままとします。掲載時刻を事実として表示し、乗車需要の確定予測には使用しません。サンメッセ香川はSSL証明書の調査中につき自動取得を停止しています。公式掲載の開催終了時刻は、実際の退場時刻・タクシー需要を意味しません。サイトの構造変更やアクセス制限で取得できない場合があります。鉄道運行、航空便、船舶、道路情報は依然として公式サイトへのリンクと手動メモです。自動で障害を検出したという表示はしません。</p><p class="tagline">気象庁の高解像度ナウキャストは公式サイトで直接確認します。このアプリの1時間単位の気象予報を、5分刻みの雨雲接近予測として扱わないでください。</p><p class="tagline">Open-Meteoの無料APIは非商用利用向けです。営業用サービス、商用配信、課金アプリとして公開する前に、商用ライセンスや別の正規情報源を確認してください。</p><p class="smallprint"><a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/en/terms">Open-Meteo利用規約</a>／気象データ：<a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/">Open-Meteo</a>（CC BY 4.0、予報に基づく表示をアプリ側で加工）</p></div></section>
-  <footer class="foot">高松タクシー・シグナル v0.7b（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
+  <footer class="foot">高松タクシー・シグナル v0.7d（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
 </main>
 <dialog id="editorDlg" aria-label="催事情報を登録・補正する"><form id="editForm">
 <h2 id="editHeading">催事を登録</h2><p id="editSource" class="convention-meta"></p>
@@ -310,15 +318,134 @@ $('importFixes').addEventListener('click',()=>$('fixesFile').click());$('fixesFi
 function renderSources(){const cards=SOURCES.map(s=>`<a class="source" href="${s.url}" target="_blank" rel="noopener noreferrer"><span class="name">${esc(s.name)}</span><span class="desc">${esc(s.desc)}</span><span class="ext">${esc(s.group)}｜公式サイトを開く ↗</span></a>`);$('sourceAll').innerHTML=cards.join('');$('sourceQuick').innerHTML=[0,1,2,3,5,6,8].map(i=>cards[i]).join('')}
 function renderAll(){renderStats();renderEvents();renderFocus()}
 async function refreshWeather(){const btn=$('refresh');btn.disabled=true;btn.textContent='取得中…';let url='https://api.open-meteo.com/v1/forecast?'+new URLSearchParams({latitude:'34.352',longitude:'134.047',hourly:'temperature_2m,precipitation,precipitation_probability',forecast_days:'2',timezone:'Asia/Tokyo'});try{const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);const res=await fetch(url,{cache:'no-store',signal:controller.signal});clearTimeout(timeout);if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();if(!data?.hourly?.time)throw new Error('気象APIの形式が異なります');weather=data;lastFetched=Date.now();btn.textContent='✓ 更新済';renderAll()}catch(err){btn.textContent='⚠ 失敗';$('wxSub').textContent='気象データを取得できません。再試行してください';console.warn('Weather API',err)}finally{btn.disabled=false;setTimeout(()=>btn.textContent='↻ 更新',3000)}}
+// v0.7d 気象庁の高解像度降水ナウキャスト（表示用タイル、非公式仕様）
+// 高松中心部と約6km圏を確認。色分け階級による参考判定であり、観測点での実測ではない。
+const NOWC_BASE = 'https://www.jma.go.jp/bosai/jmatile/data/nowc/';
+const NOWC_LAT = 34.352, NOWC_LON = 134.047;
+const NOWC_Z = 8; // 小容量の広域タイル。250mの点精度ではない。
+let nowcastBusy = false, nowcastLastOK = 0;
+const NOWC_POINTS = [
+  [NOWC_LAT,NOWC_LON,'center'],
+  [NOWC_LAT+0.010,NOWC_LON,'center'],[NOWC_LAT-0.010,NOWC_LON,'center'],
+  [NOWC_LAT,NOWC_LON+0.012,'center'],[NOWC_LAT,NOWC_LON-0.012,'center'],
+  [NOWC_LAT+0.054,NOWC_LON,'around'],[NOWC_LAT-0.054,NOWC_LON,'around'],
+  [NOWC_LAT,NOWC_LON+0.064,'around'],[NOWC_LAT,NOWC_LON-0.064,'around'],
+  [NOWC_LAT+0.038,NOWC_LON+0.045,'around'],[NOWC_LAT+0.038,NOWC_LON-0.045,'around'],
+  [NOWC_LAT-0.038,NOWC_LON+0.045,'around'],[NOWC_LAT-0.038,NOWC_LON-0.045,'around']
+];
+// 色は気象庁hrpnsタイルの凡例に対応。30mm/h以上を独自の「強雨」判定に使用。
+const NOWC_PALETTE = new Map([
+  ['242,242,255',1],['160,210,255',2],['33,140,255',3],
+  ['0,65,255',4],['250,245,0',5],['255,153,0',6],
+  ['255,40,0',7],['180,0,104',8]
+]);
+function nowcStamp(stamp){
+  if(!/^20\d{12}$/.test(stamp))throw Error('時刻形式不正');
+  return Date.UTC(+stamp.slice(0,4),+stamp.slice(4,6)-1,+stamp.slice(6,8),+stamp.slice(8,10),+stamp.slice(10,12),+stamp.slice(12,14));
+}
+function nowcTile(lat,lon){
+  const n=2**NOWC_Z;
+  const xx=(lon+180)/360*n;
+  const r=Math.max(-85.0511,Math.min(85.0511,lat))*Math.PI/180;
+  const yy=(1-Math.asinh(Math.tan(r))/Math.PI)/2*n;
+  return {x:Math.floor(xx),y:Math.floor(yy),px:Math.min(255,Math.floor((xx%1)*256)),py:Math.min(255,Math.floor((yy%1)*256))};
+}
+function nowcStatus(state,detail){
+  const box=document.querySelector('.rain-status');
+  const el=document.getElementById('rainAlert');
+  const sub=document.getElementById('rainDetail');
+  if(el)el.textContent=state;
+  if(sub)sub.textContent=detail;
+  if(box){box.classList.toggle('rain-danger',/^強雨発生|^強雨接近/.test(state));box.classList.toggle('rain-caution',/^周辺/.test(state));}
+}
+async function nowcJSON(filename,controller){
+  const url=NOWC_BASE+filename;
+  const response=await fetch(url,{cache:'no-store',signal:controller.signal});
+  if(!response.ok)throw Error('時刻一覧HTTP '+response.status);
+  const data=await response.json();
+  if(!Array.isArray(data))throw Error('時刻一覧形式不正');
+  return data.filter(a=>a&&typeof a.basetime==='string'&&typeof a.validtime==='string'&&a.elements?.includes('hrpns'));
+}
+async function nowcImage(url,controller){
+  const response=await fetch(url,{signal:controller.signal,cache:'force-cache'});
+  if(!response.ok)throw Error('降水画像HTTP '+response.status);
+  const blob=await response.blob();
+  if(blob.size<50||blob.size>1000000)throw Error('降水画像サイズ不正');
+  const bmp=await createImageBitmap(blob);
+  if(bmp.width!==256||bmp.height!==256){bmp.close();throw Error('降水画像サイズ不正')}
+  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(bmp,0,0);bmp.close();
+  return ctx;
+}
+function nowcColor(ctx,pt){
+  const rgba=ctx.getImageData(pt.px,pt.py,1,1).data;
+  // 透明は「降水なし」と「データ欠測」の双方があり得るため、ゼロ扱いは参考に限る。
+  if(rgba[3]===0)return 0;
+  const code=`${rgba[0]},${rgba[1]},${rgba[2]}`;
+  if(!NOWC_PALETTE.has(code))throw Error('未知の降水色 '+code);
+  return NOWC_PALETTE.get(code);
+}
+async function nowcFrame(entry,controller){
+  const byTile=new Map();let center=0,around=0;
+  for(const [lat,lon,area] of NOWC_POINTS){
+    const t=nowcTile(lat,lon);const k=`${t.x}/${t.y}`;
+    if(!byTile.has(k)){
+      const uri=`${NOWC_BASE}${entry.basetime}/none/${entry.validtime}/surf/hrpns/${NOWC_Z}/${t.x}/${t.y}.png`;
+      byTile.set(k,nowcImage(uri,controller));
+    }
+    const ctx=await byTile.get(k);const level=nowcColor(ctx,t);
+    if(area==='center')center=Math.max(center,level);else around=Math.max(around,level);
+  }
+  return {center,around};
+}
+async function refreshNowcast(){
+  if(nowcastBusy)return;
+  nowcastBusy=true;
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),16000);
+  try{
+    const [n1,n2]=await Promise.all([nowcJSON('targetTimes_N1.json',ctrl),nowcJSON('targetTimes_N2.json',ctrl)]);
+    const now=Date.now();
+    const analyses=n1.map(a=>({a,t:nowcStamp(a.validtime)})).filter(x=>x.t<=now+120000).sort((a,b)=>b.t-a.t);
+    if(!analyses.length||now-analyses[0].t>20*60000)throw Error('実況データが古い');
+    const origin=analyses[0].a;
+    const f=n2.map(a=>({a,t:nowcStamp(a.validtime),base:nowcStamp(a.basetime)}))
+      .filter(x=>x.t>now&&x.t<=now+31*60000&&Math.abs(x.base-analyses[0].t)<=15*60000)
+      .sort((a,b)=>a.t-b.t);
+    if(!f.length)throw Error('予測データを取得できない');
+    const picks=[f[0],f[Math.min(f.length-1,2)],f[Math.min(f.length-1,5)]]
+      .filter((p,i,arr)=>arr.findIndex(q=>q.a.validtime===p.a.validtime)===i);
+    const cur=await nowcFrame(origin,ctrl);
+    const predicted=[];for(const p of picks){predicted.push({time:p.t,data:await nowcFrame(p.a,ctrl)});}
+    const strong=6; // 30mm/h以上の色階級（独自の運用目安）
+    const jst=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}).format(new Date(analyses[0].t));
+    let state='強雨検出なし',detail=`気象庁 ${jst}解析／30分先までの参考予測`;
+    if(cur.center>=strong){state='強雨発生（レーダー）';detail=`高松中心部に強雨域｜${jst}の解析`;}
+    else{
+      const onset=predicted.find(p=>p.data.center>=strong);
+      if(onset){const mm=Math.round((onset.time-now)/60000/5)*5;state='強雨接近の予測';detail=`高松中心部 約${Math.max(5,mm)}分先に強雨域（予測）`;}
+      else if(cur.around>=strong){state='周辺で強雨';detail=`高松中心部から約6km圏内｜${jst}の解析`;}
+      else if(predicted.some(p=>p.data.around>=strong)){state='周辺に強雨予測';detail='高松周辺約6km圏内／30分以内の予測';}
+    }
+    nowcStatus(state,detail);nowcastLastOK=Date.now();
+  }catch(e){
+    console.warn('気象庁ナウキャスト',e);
+    nowcStatus('強雨：判定不能','情報を取得できません。雨雲を確認してください');
+  }finally{clearTimeout(timer);nowcastBusy=false;}
+}
+// ブラウザでアプリを開いている間だけ5分ごと更新。端末へのプッシュ通知は行わない。
+setInterval(()=>{if(document.visibilityState==='visible')refreshNowcast()},5*60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-nowcastLastOK>5*60*1000)refreshNowcast()});
+
 function activate(tab){document.querySelectorAll('.tab').forEach(btn=>btn.setAttribute('aria-selected',btn.dataset.tab===tab?'true':'false'));document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='view-'+tab);window.scrollTo({top:0,behavior:'instant'})}
-document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>activate(btn.dataset.tab)));$('refresh').addEventListener('click',refreshWeather);$('refreshAuto').addEventListener('click',()=>{refreshAutoEvents();refreshConventions();refreshGymEvents()});$('venueFilter').addEventListener('change',()=>{eventLimit=30;renderAutoEvents()});$('tierFilter').addEventListener('change',()=>{eventLimit=30;renderAutoEvents()});document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{eventRange=b.dataset.range;eventLimit=30;renderAutoEvents()}));document.querySelectorAll('[data-focus]').forEach(b=>b.addEventListener('click',()=>{focusRange=b.dataset.focus;renderFocus()}));$('eventMore').addEventListener('click',()=>{eventLimit+=30;renderAutoEvents()});$('openEvents').addEventListener('click',()=>activate('events'));document.addEventListener('click',e=>{let edit=e.target.closest('[data-edit-event]');if(edit){openEditor(edit.dataset.editEvent);return}let a=e.target.closest('[data-prefill-event]');if(a){let ev=autoEvents.find(r=>r.id===a.dataset.prefillEvent);if(ev){$('evType').value='event';$('evZone').value=ev.zone;$('evTitle').value=ev.title.slice(0,72);$('evLink').value=ev.url;$('evNote').value='公式掲載の開催時間と、実際の退場・需要発生時刻は異なる場合があります。必ず確認して入力。';$('evAt').value=toLocalDateInput(Date.parse(ev.endAt||ev.date+'T21:00:00+09:00'));$('evAt').focus();$('evAt').scrollIntoView({behavior:'smooth',block:'center'});alert('ここに入る日時は単なる入力候補です。公式情報で終了時刻を確認し、実際のタクシー需要の時間とは区別してください。')}}let mb=e.target.closest('[data-edit-memo]');if(mb){const m=memos.find(x=>x.id===mb.dataset.editMemo);if(m){memoEditId=m.id;$('evType').value=m.type;$('evZone').value=m.zone;$('evTitle').value=m.title;$('evAt').value=toLocalDateInput(m.at);$('evSize').value=m.size;$('evLink').value=m.link||'';$('evNote').value=m.note||'';$('memoForm').querySelector('button[type=submit]').textContent='✓ このメモの修正を保存';$('memoForm').scrollIntoView({behavior:'smooth',block:'center'});}return}let d=e.target.closest('[data-delete]');if(d){if(!confirm('この端末から登録メモを削除しますか？'))return;memos=memos.filter(m=>m.id!==d.dataset.delete);saveMemos();renderAll()}});
+document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>activate(btn.dataset.tab)));$('refresh').addEventListener('click',()=>{refreshWeather();refreshNowcast()});$('refreshAuto').addEventListener('click',()=>{refreshAutoEvents();refreshConventions();refreshGymEvents()});$('venueFilter').addEventListener('change',()=>{eventLimit=30;renderAutoEvents()});$('tierFilter').addEventListener('change',()=>{eventLimit=30;renderAutoEvents()});document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{eventRange=b.dataset.range;eventLimit=30;renderAutoEvents()}));document.querySelectorAll('[data-focus]').forEach(b=>b.addEventListener('click',()=>{focusRange=b.dataset.focus;renderFocus()}));$('eventMore').addEventListener('click',()=>{eventLimit+=30;renderAutoEvents()});$('openEvents').addEventListener('click',()=>activate('events'));document.addEventListener('click',e=>{let edit=e.target.closest('[data-edit-event]');if(edit){openEditor(edit.dataset.editEvent);return}let a=e.target.closest('[data-prefill-event]');if(a){let ev=autoEvents.find(r=>r.id===a.dataset.prefillEvent);if(ev){$('evType').value='event';$('evZone').value=ev.zone;$('evTitle').value=ev.title.slice(0,72);$('evLink').value=ev.url;$('evNote').value='公式掲載の開催時間と、実際の退場・需要発生時刻は異なる場合があります。必ず確認して入力。';$('evAt').value=toLocalDateInput(Date.parse(ev.endAt||ev.date+'T21:00:00+09:00'));$('evAt').focus();$('evAt').scrollIntoView({behavior:'smooth',block:'center'});alert('ここに入る日時は単なる入力候補です。公式情報で終了時刻を確認し、実際のタクシー需要の時間とは区別してください。')}}let mb=e.target.closest('[data-edit-memo]');if(mb){const m=memos.find(x=>x.id===mb.dataset.editMemo);if(m){memoEditId=m.id;$('evType').value=m.type;$('evZone').value=m.zone;$('evTitle').value=m.title;$('evAt').value=toLocalDateInput(m.at);$('evSize').value=m.size;$('evLink').value=m.link||'';$('evNote').value=m.note||'';$('memoForm').querySelector('button[type=submit]').textContent='✓ このメモの修正を保存';$('memoForm').scrollIntoView({behavior:'smooth',block:'center'});}return}let d=e.target.closest('[data-delete]');if(d){if(!confirm('この端末から登録メモを削除しますか？'))return;memos=memos.filter(m=>m.id!==d.dataset.delete);saveMemos();renderAll()}});
 function toLocalDateInput(date){let d=new Date(date);return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d).replace(' ','T')}
 $('evAt').value=toLocalDateInput(Date.now()+3600000);$('evZone').innerHTML=ZONES.map(z=>`<option value="${z.id}">${esc(z.name)}</option>`).join('');
 $('memoForm').addEventListener('submit',e=>{e.preventDefault();let title=$('evTitle').value.trim(),at=$('evAt').value,link=$('evLink').value.trim();if(!title||!Number.isFinite(Date.parse(at)))return alert('タイトルと日時を入力してください。');if(link&&!/^https:\/\//.test(link))return alert('情報源URLは https:// で始まるアドレスを指定してください。');let memo={id:crypto?.randomUUID?.()||String(Date.now()),type:$('evType').value,zone:$('evZone').value,title:title.slice(0,72),at:new Date(at).toISOString(),size:$('evSize').value,link:link.slice(0,250),note:$('evNote').value.trim().slice(0,300)};if(memoEditId){memos=memos.map(x=>x.id===memoEditId?{...memo,id:memoEditId}:x)}else{memos.unshift(memo);memos=memos.slice(0,120)}if(saveMemos()){$('memoForm').reset();memoEditId=null;$('memoForm').querySelector('button[type=submit]').textContent='＋ この端末に登録する';$('evAt').value=toLocalDateInput(Date.now()+3600000);renderAll();alert('この端末に登録しました。記録はこの端末のメモに保存され、催事の規模や需要判定には使いません。')}});
 $('exportEvents').addEventListener('click',()=>{let blob=new Blob([JSON.stringify(memos,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='takamatsu_taxi_memos.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),5000)});$('importEvents').addEventListener('click',()=>$('importFile').click());$('importFile').addEventListener('change',async e=>{let f=e.target.files?.[0];if(!f)return;if(f.size>500000)return alert('500KBを超えるファイルは読み込めません。');try{let arr=JSON.parse(await f.text());if(!Array.isArray(arr)||arr.length>120||arr.some(x=>!validateMemo(x)))throw Error();if(!confirm('既存のメモを読み込んだ内容に置き換えますか？'))return;memos=arr;saveMemos();renderAll()}catch{alert('正しいメモのJSONファイルではありません。')}finally{e.target.value=''}});
 function showInstall(){if(matchMedia('(display-mode: standalone)').matches||navigator.standalone){alert('すでにアプリとして起動しています。');return}$('installInfo').classList.add('on');if(installEvent){$('installDo').hidden=false;$('installGuide').textContent='「アプリをインストール」ボタンでホーム画面に追加できます。'}else if(/iPhone|iPad|iPod/.test(navigator.userAgent)){$('installDo').hidden=true;$('installGuide').textContent=/Line\//i.test(navigator.userAgent)?'LINE内ブラウザーからSafariで開き直し、Safariの共有メニューから「ホーム画面に追加」を選んでください。':'Safariの共有ボタンから「ホーム画面に追加」を選んでください。'}else{$('installDo').hidden=true;$('installGuide').textContent='Chromeなどのブラウザーの「︙」メニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。'}$('installInfo').scrollIntoView({behavior:'smooth',block:'center'})}
 $('installTop').addEventListener('click',showInstall);$('installHide').addEventListener('click',()=>$('installInfo').classList.remove('on'));$('installDo').addEventListener('click',async()=>{if(!installEvent)return;installEvent.prompt();await installEvent.userChoice;installEvent=null;$('installInfo').classList.remove('on')});window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e});window.addEventListener('appinstalled',()=>$('installInfo').classList.remove('on'));
-renderSources();renderAll();refreshWeather();refreshAutoEvents();refreshConventions();refreshGymEvents();if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW',err));
+renderSources();renderAll();refreshWeather();refreshNowcast();refreshAutoEvents();refreshConventions();refreshGymEvents();if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW',err));
 })();
 </script>
 
