@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#081623"><meta name="description" content="高松市のタクシー乗務員向け、天候と公式催事の開場・開演・終演時刻を整理するPWA（試作版）。">
   <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="signal-192.png"><link rel="apple-touch-icon" href="signal-192.png">
-  <title>高松タクシー・シグナル v0.7i</title>
+  <title>高松タクシー・シグナル v0.7j</title>
   <style>
 /* v0.6: event-first simple layout; map/guess-score sections removed */
 .event-time-band .time-door{color:#b3e6e3;font-weight:650;background:#1d4550;border-radius:5px;padding:4px 8px}.stat-value#nextEv{font-size:clamp(16px,1.55vw,21px);line-height:1.5;overflow-wrap:anywhere}.pulse-stats{margin-top:12px}
@@ -103,7 +103,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 
  .venue-area{font-size:11px;font-weight:650;color:#9fc4d0}
 
-/* v0.7i 催事画面の視認性向上 */
+/* v0.7j 催事画面の視認性向上 */
 #view-events #venueCounts,#view-events .tier-explainer,#view-events #autoMeta{display:none}
 .signal-event .event-day-strong{font-size:15px;font-weight:900;color:#f3faff;font-variant-numeric:tabular-nums;white-space:nowrap}
 .signal-event .event-lead{margin-bottom:8px}
@@ -111,10 +111,23 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 .signal-event .event-time-band .time-strong,.signal-event .event-time-band .time-door{font-size:14px;font-weight:850;padding:7px 10px}
 .signal-event .event-title-strong{margin:0 0 7px;font-size:16px}
 @media(max-width:580px){.signal-event .event-day-strong{font-size:14px}.signal-event .event-time-band .time-strong,.signal-event .event-time-band .time-door{font-size:13px}.signal-event .event-title-strong{font-size:15px}}
+
+/* v0.7j 新規登録を集約 */
+.quick-manual{margin-top:18px;margin-bottom:18px;padding:16px 18px}
+.quick-manual-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.quick-manual-heading h2{margin:0;font-size:20px}
+.quick-manual-heading button{padding:12px 20px;font-weight:800}
+.quick-manual>p{font-size:12px;color:var(--sub);margin:6px 0 12px}
+.more-registration{border-top:1px solid var(--border);padding-top:11px;font-size:13px}
+.more-registration summary{cursor:pointer;color:#b3d9e3;padding:5px 0}
+.more-registration>details{margin:8px 0;padding:5px 8px;border:1px solid var(--border);border-radius:9px}
+.editor-more{padding:9px 0;margin:7px 0;border-top:1px solid var(--border)}
+.editor-more>summary{cursor:pointer;color:#b6dce8;font-size:13px;margin-bottom:9px}
+@media(max-width:580px){.quick-manual-heading button{width:100%}}
 </style>
 </head>
 <body>
-<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7i</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
+<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7j</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
     <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub">高松中心部の予報</small></div></div>
@@ -134,28 +147,28 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
     <div class="sectionhead"><div><h2>現在の確認先</h2></div></div>
     <div class="sourcegrid" id="sourceQuick"></div>
   </section>
-  <section class="view" id="view-events" role="tabpanel" hidden><div class="sectionhead"><div><h2>催事予定</h2></div><button class="btn secondary sm" id="refreshAuto">↻ 催事データを再読込</button></div><div class="card" style="margin-bottom:16px"><div class="rangebar" role="group" aria-label="催事の表示期間"><button type="button" class="rangebutton" data-range="today" aria-pressed="false">今日</button><button type="button" class="rangebutton" data-range="tomorrow" aria-pressed="false">明日</button><button type="button" class="rangebutton" data-range="week" aria-pressed="true">今後7日</button><button type="button" class="rangebutton" data-range="all" aria-pressed="false">今後すべて</button></div><div class="venuefilters"><label for="venueFilter">会場</label><select id="venueFilter"><option value="all">すべての会場</option><option value="あなぶきアリーナ香川">あなぶきアリーナ香川</option><option value="サンポートホール高松">サンポートホール高松</option><option value="高松市総合体育館">高松市総合体育館</option></select><label for="tierFilter">規模目安</label><select id="tierFilter"><option value="all">すべて</option><option value="large">大規模候補</option><option value="medium">中規模候補</option><option value="small">小規模候補</option><option value="limited">関係者向け</option><option value="unknown">不明</option></select><span id="venueCounts" class="subtle" aria-live="polite"></span></div><p class="tier-explainer">● 大・中・小は会場と内容からの<strong>参考分類</strong>です。スポーツ協会の行事は人数が未公表のため<strong>原則「規模不明」</strong>として収録し、小さな催事も省略しません。規模は各カードからこの端末で補正できます。</p><div class="subtle" id="autoMeta">催事データを確認中です…</div><div id="autoEventList" style="margin-top:13px"></div><button class="btn secondary" id="eventMore" hidden type="button">さらに30件を表示</button><p class="smallprint">自動取得は公開されている日程の参考表示です。催事の中止・変更・終演時刻は必ずリンク先で確認してください。各会場周辺の交通規制・駐停車禁止に注意。</p></div><section class="convention-panel" aria-labelledby="conventionTitle"><h3 id="conventionTitle">公開大会・ホテル催事</h3>
+  <section class="view" id="view-events" role="tabpanel" hidden><div class="sectionhead"><div><h2>催事予定</h2></div><button class="btn secondary sm" id="refreshAuto">↻ 催事データを再読込</button></div><div class="card" style="margin-bottom:16px"><div class="rangebar" role="group" aria-label="催事の表示期間"><button type="button" class="rangebutton" data-range="today" aria-pressed="false">今日</button><button type="button" class="rangebutton" data-range="tomorrow" aria-pressed="false">明日</button><button type="button" class="rangebutton" data-range="week" aria-pressed="true">今後7日</button><button type="button" class="rangebutton" data-range="all" aria-pressed="false">今後すべて</button></div><div class="venuefilters"><label for="venueFilter">会場</label><select id="venueFilter"><option value="all">すべての会場</option><option value="あなぶきアリーナ香川">あなぶきアリーナ香川</option><option value="サンポートホール高松">サンポートホール高松</option><option value="高松市総合体育館">高松市総合体育館</option></select><label for="tierFilter">規模目安</label><select id="tierFilter"><option value="all">すべて</option><option value="large">大規模候補</option><option value="medium">中規模候補</option><option value="small">小規模候補</option><option value="limited">関係者向け</option><option value="unknown">不明</option></select><span id="venueCounts" class="subtle" aria-live="polite"></span></div><p class="tier-explainer">● 大・中・小は会場と内容からの<strong>参考分類</strong>です。スポーツ協会の行事は人数が未公表のため<strong>原則「規模不明」</strong>として収録し、小さな催事も省略しません。規模は各カードからこの端末で補正できます。</p><div class="subtle" id="autoMeta">催事データを確認中です…</div><div id="autoEventList" style="margin-top:13px"></div><button class="btn secondary" id="eventMore" hidden type="button">さらに30件を表示</button><p class="smallprint">自動取得は公開されている日程の参考表示です。催事の中止・変更・終演時刻は必ずリンク先で確認してください。各会場周辺の交通規制・駐停車禁止に注意。</p></div><section class="card quick-manual"><div class="quick-manual-heading"><h2>新規登録</h2><button id="newManual" type="button">＋ 新規登録</button></div><p>催事・集まりなどを日時と場所で登録します。種類の選択は不要です。</p><details id="moreRegistrationTools" class="more-registration"><summary>交通障害のメモ・バックアップなど</summary><details id="legacyConvWrap"><summary>公開大会の一覧・データのバックアップ</summary></details><details id="legacyMemoWrap"><summary>交通・運行情報のメモ</summary></details></details></section><section class="convention-panel" aria-labelledby="conventionTitle"><h3 id="conventionTitle">公開大会・ホテル催事</h3>
  <p class="convention-meta">高松観光コンベンション・ビューローの公開カレンダーを自動取得します。高松市スポーツ施設13施設の月間予定も別に取得します。小規模行事や個人使用日も原則掲載し、時刻・人数が未公表なら推定しません。掲載人数は大会全体の予定人数で、ホテル宴会参加者や日別人数ではありません。開催時間は未公表の場合があります。</p>
  <p class="guide-note">ここでの「追加・補正」は<strong>この端末にのみ保存</strong>されます。公式情報は書き換えず、表示時に本人の補正を重ねます。ほかの乗務員には共有されません。未公開の宴会について、個人名や参加者の私的情報は登録しないでください。</p>
- <div class="convention-actions"><button id="newManual" type="button">＋ 宴会・催事を手動登録</button><button id="exportFixes" type="button">登録・補正をバックアップ</button><button id="importFixes" type="button">バックアップを読み込み</button><input id="fixesFile" type="file" accept=".json,application/json" hidden></div>
+ <div class="convention-actions"><button id="exportFixes" type="button">登録・補正をバックアップ</button><button id="importFixes" type="button">バックアップを読み込み</button><input id="fixesFile" type="file" accept=".json,application/json" hidden></div>
  <p id="convMeta" class="convention-meta">コンベンションカレンダーを確認中です…</p>
  <div class="venuefilters" style="margin:10px 0"><label for="convVenue">会場名の検索</label><input id="convVenue" style="max-width:330px" placeholder="例：クレメント、パールガーデン"></div>
  <div id="convList"><div class="empty">読み込み中…</div></div>
  <div class="convention-actions"><button id="convMore" type="button">さらに表示</button></div>
  <p class="smallprint">大会が複数会場にまたがる場合、掲載参加人数を各会場に割り振りません。公式掲載のない宴会は本人の未確認メモとして区別します。</p></section>
- <div class="sectionhead"><div><h2>イベント・突発情報を登録</h2><p>現場で確認した時刻や交通障害を、ご自身の端末にメモできます。</p></div></div><div class="split"><div class="card"><form id="memoForm"><div class="formgrid"><div class="field"><label for="evType">情報の種類</label><select id="evType"><option value="event">催事・終演</option><option value="rail">鉄道の運休・遅延</option><option value="flight">航空便の到着・欠航</option><option value="port">船舶・フェリー</option><option value="road">交通障害</option><option value="other">その他</option></select></div><div class="field"><label for="evZone">対象地区</label><select id="evZone"></select></div></div><div class="field"><label for="evTitle">内容の名前</label><input id="evTitle" required maxlength="72" placeholder="例：アリーナでコンサート（終演時刻を確認）"></div><div class="formgrid"><div class="field"><label for="evAt">発生・終了予定日時</label><input id="evAt" type="datetime-local" required></div><div class="field"><label for="evSize">想定規模（任意）</label><select id="evSize"><option value="small">小・不明</option><option value="medium">中</option><option value="large">大</option></select></div></div><div class="field"><label for="evLink">情報源URL（任意）</label><input id="evLink" type="url" placeholder="https://..."></div><div class="field"><label for="evNote">備考（任意）</label><textarea id="evNote" maxlength="300" placeholder="終了時刻は未確定、交通規制あり、など"></textarea></div><button type="submit" class="btn">＋ この端末に登録する</button><p class="smallprint">各記録は入力者のメモです。公式に確認した情報と混同しないでください。保存はこのブラウザーのみに行われ、端末間同期・自動監視はありません。</p></form></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:9px"><h3 style="margin:0">登録済みメモ</h3><div><button class="btn ghost sm" id="exportEvents">書き出し</button><button class="btn ghost sm" id="importEvents">読み込み</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div><div id="eventList" style="margin-top:15px"></div></div></div></section>
+ <div class="sectionhead" id="legacyMemoHead"><div><h2>交通・運行情報をメモ</h2><p>現場で確認した時刻や交通障害を、ご自身の端末にメモできます。</p></div></div><div class="split" id="legacyMemoSplit"><div class="card"><form id="memoForm"><div class="formgrid"><div class="field"><label for="evType">情報の種類</label><select id="evType"><option value="event">催事・終演</option><option value="rail">鉄道の運休・遅延</option><option value="flight">航空便の到着・欠航</option><option value="port">船舶・フェリー</option><option value="road">交通障害</option><option value="other">その他</option></select></div><div class="field"><label for="evZone">対象地区</label><select id="evZone"></select></div></div><div class="field"><label for="evTitle">内容の名前</label><input id="evTitle" required maxlength="72" placeholder="例：アリーナでコンサート（終演時刻を確認）"></div><div class="formgrid"><div class="field"><label for="evAt">発生・終了予定日時</label><input id="evAt" type="datetime-local" required></div><div class="field"><label for="evSize">想定規模（任意）</label><select id="evSize"><option value="small">小・不明</option><option value="medium">中</option><option value="large">大</option></select></div></div><div class="field"><label for="evLink">情報源URL（任意）</label><input id="evLink" type="url" placeholder="https://..."></div><div class="field"><label for="evNote">備考（任意）</label><textarea id="evNote" maxlength="300" placeholder="終了時刻は未確定、交通規制あり、など"></textarea></div><button type="submit" class="btn">＋ この端末に登録する</button><p class="smallprint">各記録は入力者のメモです。公式に確認した情報と混同しないでください。保存はこのブラウザーのみに行われ、端末間同期・自動監視はありません。</p></form></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:9px"><h3 style="margin:0">登録済みメモ</h3><div><button class="btn ghost sm" id="exportEvents">書き出し</button><button class="btn ghost sm" id="importEvents">読み込み</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div><div id="eventList" style="margin-top:15px"></div></div></div></section>
   <section class="view" id="view-sources" role="tabpanel" hidden><div class="sectionhead"><div><h2>公式情報をすばやく開く</h2><p>リンク先の各公式サイトで必ず最新時刻と条件を確認してください。</p></div></div><div id="sourceAll" class="sourcegrid"></div><div class="card" style="margin-top:15px"><h3 style="margin-top:0">自動取得の範囲と限界</h3><p class="tagline">この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。あなぶきアリーナ香川とサンポートホール高松の公式催事日程に加え、高松市スポーツ協会が公開する13施設の月間PDFから、当月と翌月の催事をGitHub Actionsで定期収集します。スポーツ施設の開催時刻・参加人数はPDFにない限り空欄のままとします。掲載時刻を事実として表示し、乗車需要の確定予測には使用しません。サンメッセ香川はSSL証明書の調査中につき自動取得を停止しています。公式掲載の開催終了時刻は、実際の退場時刻・タクシー需要を意味しません。サイトの構造変更やアクセス制限で取得できない場合があります。鉄道運行、航空便、船舶、道路情報は依然として公式サイトへのリンクと手動メモです。自動で障害を検出したという表示はしません。</p><p class="tagline">気象庁の高解像度ナウキャストは公式サイトで直接確認します。このアプリの1時間単位の気象予報を、5分刻みの雨雲接近予測として扱わないでください。</p><p class="tagline">Open-Meteoの無料APIは非商用利用向けです。営業用サービス、商用配信、課金アプリとして公開する前に、商用ライセンスや別の正規情報源を確認してください。</p><p class="smallprint"><a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/en/terms">Open-Meteo利用規約</a>／気象データ：<a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/">Open-Meteo</a>（CC BY 4.0、予報に基づく表示をアプリ側で加工）</p></div></section>
-  <footer class="foot">高松タクシー・シグナル v0.7i（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
+  <footer class="foot">高松タクシー・シグナル v0.7j（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
 </main>
 <dialog id="editorDlg" aria-label="催事情報を登録・補正する"><form id="editForm">
-<h2 id="editHeading">催事を登録</h2><p id="editSource" class="convention-meta"></p>
-<label for="editName">催事名（必須）</label><input id="editName" maxlength="120" required>
-<label for="editVenue">施設・宴会場名（必須）</label><input id="editVenue" maxlength="160" required placeholder="例：JRホテルクレメント高松">
+<h2 id="editHeading">新規登録</h2><p id="editSource" class="convention-meta"></p>
+<label for="editName">内容・催事名（必須）</label><input id="editName" maxlength="120" required>
+<label for="editVenue">場所・施設名（必須）</label><input id="editVenue" maxlength="160" required placeholder="例：駅前、体育館、ホテルなど">
 <div class="editor-grid"><div><label for="editDay">開催日（必須）</label><input id="editDay" type="date" required></div><div><label for="editEndDay">最終日（任意）</label><input id="editEndDay" type="date"></div></div>
 <div class="editor-grid"><div><label for="editStart">開始時刻（未確認なら空欄）</label><input id="editStart" type="time"></div><div><label for="editEnd">終了時刻（未確認なら空欄）</label><input id="editEnd" type="time"></div></div>
-<div class="editor-grid"><div><label for="editCount">参加予定人数（任意）</label><input id="editCount" type="number" min="0" max="100000" step="1" placeholder="不明なら空欄"></div><div><label for="editTier">規模の参考分類</label><select id="editTier"><option value="auto">自動判定・不明</option><option value="large">大規模候補</option><option value="medium">中規模候補</option><option value="small">小規模候補</option><option value="limited">関係者向け</option><option value="unknown">不明</option></select></div></div>
+<details id="editorMore" class="editor-more"><summary>追加情報（人数・規模・備考など）</summary><div class="editor-grid"><div><label for="editCount">参加予定人数（任意）</label><input id="editCount" type="number" min="0" max="100000" step="1" placeholder="不明なら空欄"></div><div><label for="editTier">規模の参考分類</label><select id="editTier"><option value="auto">自動判定・不明</option><option value="large">大規模候補</option><option value="medium">中規模候補</option><option value="small">小規模候補</option><option value="limited">関係者向け</option><option value="unknown">不明</option></select></div></div>
 <label for="editConfidence">情報の確認状況</label><select id="editConfidence"><option value="unverified">聞き込み・未確認</option><option value="confirmed">主催者・公式情報等で確認済み（本人による申告）</option></select>
-<label for="editComment">備考（任意）</label><textarea id="editComment" maxlength="300" placeholder="例：開始は未確認、17時半頃に終了の見込み"></textarea>
+<label for="editComment">備考（任意）</label><textarea id="editComment" maxlength="300" placeholder="例：開始は未確認、17時半頃に終了の見込み"></textarea></details>
 <div class="editor-actions"><button class="primary" type="submit">保存する</button><button type="button" id="editCancel">キャンセル</button><button type="button" id="editRestore" hidden>元の公式情報に戻す</button><button type="button" id="editRemove" hidden>この手動登録を削除</button></div>
 <p class="convention-meta">変更はブラウザー内だけに保存されます。公式発表の内容そのものは変更しません。日付や時刻が非公開なら推測で埋めないでください。</p>
 </form></dialog>
@@ -207,12 +220,12 @@ function rebuildEvents(){autoEvents=effectiveEvents();renderAll();renderAutoEven
 function scaleForced(a){const forced=a.scaleOverride;if(forced&&forced!=='auto')return{key:forced,label:{large:'大規模候補',medium:'中規模候補',small:'小規模候補',limited:'関係者向け',unknown:'規模不明'}[forced]||'規模不明',reason:'本人が選択した参考分類'};if(a.sourceType==='gym')return{key:'unknown',label:'規模不明',reason:'スポーツ協会の月間予定には参加人数が掲載されていません。規模は利用者自身で補正できます'};if(a.sourceType==='convention'&&Number.isInteger(a.participants)){const k=a.participants>=1000?'large':a.participants>=300?'medium':'small';return{key:k,label:{large:'大規模候補',medium:'中規模候補',small:'小規模候補'}[k],reason:'大会全体の掲載参加予定人数から暫定分類（会場別ではない）'}}return null}
 function openEditor(id){const base=[...officialEvents,...conventionEvents,...gymEvents,...privateManualEvents].find(x=>x.id===id),event=autoEvents.find(x=>x.id===id);editingID=id||null;
  if(!event&&id)return;let e=event||{title:'',venue:'',date:jstDateKey(),endDate:'',startAt:null,endAt:null,participants:null,scaleOverride:'auto',personalNote:'',confidence:'unverified',sourceType:'manual'};
- $('editHeading').textContent=id?(e.sourceType==='manual'?'手動登録を編集':'公式催事の表示内容を補正'):'新しい宴会・催事を手動登録';
+ $('editHeading').textContent=id?(e.sourceType==='manual'?'手動登録を編集':'公式催事の表示内容を補正'):'新規登録';
  $('editSource').textContent=id&&base&&base.sourceType!=='manual'?'公式の元データは残し、この端末だけで補正します。公式情報に戻すこともできます。':'こちらの登録は公式情報ではなく、この端末の記録です。';
  $('editName').value=e.title||'';$('editVenue').value=e.venue||'';$('editDay').value=e.date||jstDateKey();$('editEndDay').value=e.endDate||'';
  $('editStart').value=valueTime(e.startAt);$('editEnd').value=valueTime(e.endAt);$('editCount').value=Number.isInteger(e.participants)?e.participants:'';
  $('editTier').value=e.scaleOverride||'auto';$('editConfidence').value=e.confidence||'unverified';$('editComment').value=e.personalNote||'';
- $('editRestore').hidden=!id||e.sourceType==='manual'||!localFixes[id];$('editRemove').hidden=!id||e.sourceType!=='manual';$('editorDlg').showModal();}
+ $('editRestore').hidden=!id||e.sourceType==='manual'||!localFixes[id];$('editRemove').hidden=!id||e.sourceType!=='manual';$('editorMore').open=!!id;$('editorDlg').showModal();}
 let editingID=null;
 function closeEditor(){$('editorDlg').close();editingID=null}
 function loadMemos(){try{const raw=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(raw)?raw.filter(validateMemo).slice(0,120):[]}catch{return []}}
@@ -505,4 +518,14 @@ renderSources();renderAll();refreshWeather();refreshNowcast();refreshAutoEvents(
 })();
 </script>
 
+<script>
+(function(){
+const a=document.getElementById('legacyConvWrap');
+const b=document.getElementById('legacyMemoWrap');
+const c=document.querySelector('#view-events .convention-panel');
+const d=document.getElementById('legacyMemoHead');
+const e=document.getElementById('legacyMemoSplit');
+if(a&&b&&c&&d&&e){a.append(c);b.append(d,e);}
+})();
+</script>
 </body></html>
