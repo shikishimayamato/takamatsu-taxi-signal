@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#081623"><meta name="description" content="高松市のタクシー乗務員向け、天候と公式催事の開場・開演・終演時刻を整理するPWA（試作版）。">
   <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="signal-192.png"><link rel="apple-touch-icon" href="signal-192.png">
-  <title>高松タクシー・シグナル v0.7e</title>
+  <title>高松タクシー・シグナル v0.7f</title>
   <style>
 /* v0.6: event-first simple layout; map/guess-score sections removed */
 .event-time-band .time-door{color:#b3e6e3;font-weight:650;background:#1d4550;border-radius:5px;padding:4px 8px}.stat-value#nextEv{font-size:clamp(16px,1.55vw,21px);line-height:1.5;overflow-wrap:anywhere}.pulse-stats{margin-top:12px}
@@ -101,10 +101,11 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 }
 @media(max-width:370px){.weather-strip{grid-template-columns:minmax(0,1fr) auto}.rain-label{font-size:10px}.wx-primary-text strong{font-size:12px}.weather-strip:after{font-size:8px}}
 
+ .venue-area{font-size:11px;font-weight:650;color:#9fc4d0}
 </style>
 </head>
 <body>
-<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7e</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
+<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7f</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
     <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub">高松中心部の予報</small></div></div>
@@ -126,8 +127,8 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
     <div class="sectionhead"><div><h2>現在の確認先</h2><p>自動で運休・欠航・通行止めを検知しているわけではありません。</p></div></div>
     <div class="sourcegrid" id="sourceQuick"></div>
   </section>
-  <section class="view" id="view-events" role="tabpanel" hidden><div class="sectionhead"><div><h2>自動取得した催事予定</h2><p>公式サイトの催事日程を半日ごとに確認。施設別に開催日と公表時刻を表示します。開場・開演・公表終演時刻を区別して表示します。時刻は必ず公式サイトで確認してください。</p></div><button class="btn secondary sm" id="refreshAuto">↻ 催事データを再読込</button></div><div class="card" style="margin-bottom:16px"><div class="rangebar" role="group" aria-label="催事の表示期間"><button type="button" class="rangebutton" data-range="today" aria-pressed="false">今日</button><button type="button" class="rangebutton" data-range="tomorrow" aria-pressed="false">明日</button><button type="button" class="rangebutton" data-range="week" aria-pressed="true">今後7日</button><button type="button" class="rangebutton" data-range="all" aria-pressed="false">今後すべて</button></div><div class="venuefilters"><label for="venueFilter">会場</label><select id="venueFilter"><option value="all">すべての会場</option><option value="あなぶきアリーナ香川">あなぶきアリーナ香川</option><option value="サンポートホール高松">サンポートホール高松</option><option value="高松市総合体育館">高松市総合体育館</option></select><label for="tierFilter">規模目安</label><select id="tierFilter"><option value="all">すべて</option><option value="large">大規模候補</option><option value="medium">中規模候補</option><option value="small">小規模候補</option><option value="limited">関係者向け</option><option value="unknown">不明</option></select><span id="venueCounts" class="subtle" aria-live="polite"></span></div><p class="tier-explainer">● 大・中・小は会場と内容からの<strong>推定分類</strong>です。確定した来場者数ではありません。「関係者向け」は一般利用に制限がある催事です。</p><div class="subtle" id="autoMeta">催事データを確認中です…</div><div id="autoEventList" style="margin-top:13px"></div><button class="btn secondary" id="eventMore" hidden type="button">さらに30件を表示</button><p class="smallprint">自動取得は公開されている日程の参考表示です。催事の中止・変更・終演時刻は必ずリンク先で確認してください。各会場周辺の交通規制・駐停車禁止に注意。</p></div><section class="convention-panel" aria-labelledby="conventionTitle"><h3 id="conventionTitle">公開大会・ホテル催事</h3>
- <p class="convention-meta">高松観光コンベンション・ビューローの公開カレンダーを自動取得します。高松市総合体育館の公式月間行事予定も別に取得し、体育館の時刻や参加人数は未公表なら推定しません。掲載人数は大会全体の予定人数で、ホテル宴会参加者や日別人数ではありません。開催時間は未公表の場合があります。</p>
+  <section class="view" id="view-events" role="tabpanel" hidden><div class="sectionhead"><div><h2>自動取得した催事予定</h2><p>公式サイトの催事日程を半日ごとに確認。施設別に開催日と公表時刻を表示します。開場・開演・公表終演時刻を区別して表示します。時刻は必ず公式サイトで確認してください。</p></div><button class="btn secondary sm" id="refreshAuto">↻ 催事データを再読込</button></div><div class="card" style="margin-bottom:16px"><div class="rangebar" role="group" aria-label="催事の表示期間"><button type="button" class="rangebutton" data-range="today" aria-pressed="false">今日</button><button type="button" class="rangebutton" data-range="tomorrow" aria-pressed="false">明日</button><button type="button" class="rangebutton" data-range="week" aria-pressed="true">今後7日</button><button type="button" class="rangebutton" data-range="all" aria-pressed="false">今後すべて</button></div><div class="venuefilters"><label for="venueFilter">会場</label><select id="venueFilter"><option value="all">すべての会場</option><option value="あなぶきアリーナ香川">あなぶきアリーナ香川</option><option value="サンポートホール高松">サンポートホール高松</option><option value="高松市総合体育館">高松市総合体育館</option></select><label for="tierFilter">規模目安</label><select id="tierFilter"><option value="all">すべて</option><option value="large">大規模候補</option><option value="medium">中規模候補</option><option value="small">小規模候補</option><option value="limited">関係者向け</option><option value="unknown">不明</option></select><span id="venueCounts" class="subtle" aria-live="polite"></span></div><p class="tier-explainer">● 大・中・小は会場と内容からの<strong>参考分類</strong>です。スポーツ協会の行事は人数が未公表のため<strong>原則「規模不明」</strong>として収録し、小さな催事も省略しません。規模は各カードからこの端末で補正できます。</p><div class="subtle" id="autoMeta">催事データを確認中です…</div><div id="autoEventList" style="margin-top:13px"></div><button class="btn secondary" id="eventMore" hidden type="button">さらに30件を表示</button><p class="smallprint">自動取得は公開されている日程の参考表示です。催事の中止・変更・終演時刻は必ずリンク先で確認してください。各会場周辺の交通規制・駐停車禁止に注意。</p></div><section class="convention-panel" aria-labelledby="conventionTitle"><h3 id="conventionTitle">公開大会・ホテル催事</h3>
+ <p class="convention-meta">高松観光コンベンション・ビューローの公開カレンダーを自動取得します。高松市スポーツ施設13施設の月間予定も別に取得します。小規模行事や個人使用日も原則掲載し、時刻・人数が未公表なら推定しません。掲載人数は大会全体の予定人数で、ホテル宴会参加者や日別人数ではありません。開催時間は未公表の場合があります。</p>
  <p class="guide-note">ここでの「追加・補正」は<strong>この端末にのみ保存</strong>されます。公式情報は書き換えず、表示時に本人の補正を重ねます。ほかの乗務員には共有されません。未公開の宴会について、個人名や参加者の私的情報は登録しないでください。</p>
  <div class="convention-actions"><button id="newManual" type="button">＋ 宴会・催事を手動登録</button><button id="exportFixes" type="button">登録・補正をバックアップ</button><button id="importFixes" type="button">バックアップを読み込み</button><input id="fixesFile" type="file" accept=".json,application/json" hidden></div>
  <p id="convMeta" class="convention-meta">コンベンションカレンダーを確認中です…</p>
@@ -136,8 +137,8 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
  <div class="convention-actions"><button id="convMore" type="button">さらに表示</button></div>
  <p class="smallprint">大会が複数会場にまたがる場合、掲載参加人数を各会場に割り振りません。公式掲載のない宴会は本人の未確認メモとして区別します。</p></section>
  <div class="sectionhead"><div><h2>イベント・突発情報を登録</h2><p>現場で確認した時刻や交通障害を、ご自身の端末にメモできます。</p></div></div><div class="split"><div class="card"><form id="memoForm"><div class="formgrid"><div class="field"><label for="evType">情報の種類</label><select id="evType"><option value="event">催事・終演</option><option value="rail">鉄道の運休・遅延</option><option value="flight">航空便の到着・欠航</option><option value="port">船舶・フェリー</option><option value="road">交通障害</option><option value="other">その他</option></select></div><div class="field"><label for="evZone">対象地区</label><select id="evZone"></select></div></div><div class="field"><label for="evTitle">内容の名前</label><input id="evTitle" required maxlength="72" placeholder="例：アリーナでコンサート（終演時刻を確認）"></div><div class="formgrid"><div class="field"><label for="evAt">発生・終了予定日時</label><input id="evAt" type="datetime-local" required></div><div class="field"><label for="evSize">想定規模（任意）</label><select id="evSize"><option value="small">小・不明</option><option value="medium">中</option><option value="large">大</option></select></div></div><div class="field"><label for="evLink">情報源URL（任意）</label><input id="evLink" type="url" placeholder="https://..."></div><div class="field"><label for="evNote">備考（任意）</label><textarea id="evNote" maxlength="300" placeholder="終了時刻は未確定、交通規制あり、など"></textarea></div><button type="submit" class="btn">＋ この端末に登録する</button><p class="smallprint">各記録は入力者のメモです。公式に確認した情報と混同しないでください。保存はこのブラウザーのみに行われ、端末間同期・自動監視はありません。</p></form></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:9px"><h3 style="margin:0">登録済みメモ</h3><div><button class="btn ghost sm" id="exportEvents">書き出し</button><button class="btn ghost sm" id="importEvents">読み込み</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div><div id="eventList" style="margin-top:15px"></div></div></div></section>
-  <section class="view" id="view-sources" role="tabpanel" hidden><div class="sectionhead"><div><h2>公式情報をすばやく開く</h2><p>リンク先の各公式サイトで必ず最新時刻と条件を確認してください。</p></div></div><div id="sourceAll" class="sourcegrid"></div><div class="card" style="margin-top:15px"><h3 style="margin-top:0">自動取得の範囲と限界</h3><p class="tagline">この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。あなぶきアリーナ香川とサンポートホール高松の公式催事日程に加え、高松市総合体育館の月間PDFをGitHub Actionsで定期収集します。体育館の開催時刻・参加人数はPDFにない限り空欄のままとします。掲載時刻を事実として表示し、乗車需要の確定予測には使用しません。サンメッセ香川はSSL証明書の調査中につき自動取得を停止しています。公式掲載の開催終了時刻は、実際の退場時刻・タクシー需要を意味しません。サイトの構造変更やアクセス制限で取得できない場合があります。鉄道運行、航空便、船舶、道路情報は依然として公式サイトへのリンクと手動メモです。自動で障害を検出したという表示はしません。</p><p class="tagline">気象庁の高解像度ナウキャストは公式サイトで直接確認します。このアプリの1時間単位の気象予報を、5分刻みの雨雲接近予測として扱わないでください。</p><p class="tagline">Open-Meteoの無料APIは非商用利用向けです。営業用サービス、商用配信、課金アプリとして公開する前に、商用ライセンスや別の正規情報源を確認してください。</p><p class="smallprint"><a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/en/terms">Open-Meteo利用規約</a>／気象データ：<a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/">Open-Meteo</a>（CC BY 4.0、予報に基づく表示をアプリ側で加工）</p></div></section>
-  <footer class="foot">高松タクシー・シグナル v0.7e（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
+  <section class="view" id="view-sources" role="tabpanel" hidden><div class="sectionhead"><div><h2>公式情報をすばやく開く</h2><p>リンク先の各公式サイトで必ず最新時刻と条件を確認してください。</p></div></div><div id="sourceAll" class="sourcegrid"></div><div class="card" style="margin-top:15px"><h3 style="margin-top:0">自動取得の範囲と限界</h3><p class="tagline">この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。あなぶきアリーナ香川とサンポートホール高松の公式催事日程に加え、高松市スポーツ協会が公開する13施設の月間PDFから、当月と翌月の催事をGitHub Actionsで定期収集します。スポーツ施設の開催時刻・参加人数はPDFにない限り空欄のままとします。掲載時刻を事実として表示し、乗車需要の確定予測には使用しません。サンメッセ香川はSSL証明書の調査中につき自動取得を停止しています。公式掲載の開催終了時刻は、実際の退場時刻・タクシー需要を意味しません。サイトの構造変更やアクセス制限で取得できない場合があります。鉄道運行、航空便、船舶、道路情報は依然として公式サイトへのリンクと手動メモです。自動で障害を検出したという表示はしません。</p><p class="tagline">気象庁の高解像度ナウキャストは公式サイトで直接確認します。このアプリの1時間単位の気象予報を、5分刻みの雨雲接近予測として扱わないでください。</p><p class="tagline">Open-Meteoの無料APIは非商用利用向けです。営業用サービス、商用配信、課金アプリとして公開する前に、商用ライセンスや別の正規情報源を確認してください。</p><p class="smallprint"><a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/en/terms">Open-Meteo利用規約</a>／気象データ：<a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/">Open-Meteo</a>（CC BY 4.0、予報に基づく表示をアプリ側で加工）</p></div></section>
+  <footer class="foot">高松タクシー・シグナル v0.7f（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
 </main>
 <dialog id="editorDlg" aria-label="催事情報を登録・補正する"><form id="editForm">
 <h2 id="editHeading">催事を登録</h2><p id="editSource" class="convention-meta"></p>
@@ -173,13 +174,14 @@ const SOURCES=[
 {group:'イベント',name:'あなぶきアリーナ香川',desc:'コンサート・スポーツ・展示などの開催情報',url:'https://kagawa-arena.com/event/'},
 {group:'イベント',name:'高松観光コンベンション・ビューロー',desc:'公開催事・参加予定人数・ホテルを含む会場',url:'https://takamatsu.or.jp/calendar/'},
 {group:'イベント',name:'サンポートホール高松',desc:'ホール公演・催事の公式掲載時間',url:'https://www.sunport-hall.jp/hall/'}, {group:'イベント',name:'サンメッセ香川（自動取得停止中）',desc:'SSL接続を調査中。公式ページで催事日程を確認',url:'https://www.sunmesse.com/event/'},
-{group:'イベント',name:'高松市総合体育館の行事予定',desc:'スポーツ協会の公式月間PDF（日時・人数は未掲載の場合あり）',url:'https://www.taka-spo.or.jp/schedule.html'},
+{group:'イベント',name:'高松市スポーツ施設13施設の行事予定',desc:'スポーツ協会の公式月間PDF（日時・人数は未掲載の場合あり）',url:'https://www.taka-spo.or.jp/schedule.html'},
 {group:'イベント',name:'高松市 イベントカレンダー',desc:'市内で開催する催事の公式カレンダー',url:'https://www.city.takamatsu.kagawa.jp/event/calendar/calendar.html'},
 {group:'船舶',name:'香川県 クルーズ船入港',desc:'高松港などの入港予定リストを確認',url:'https://www.pref.kagawa.lg.jp/kouryu/cruise/jisseki.html'},
 {group:'道路',name:'JARTIC 道路交通情報',desc:'高速道路・一般道路の交通情報',url:'https://www.jartic.or.jp/'},
 {group:'道路',name:'本四高速 交通情報',desc:'瀬戸中央道などの通行止め・交通情報',url:'https://www.jb-honshi.co.jp/customer_index/traffic/'}
 ];
-const KEY='takamatsu-taxi-memos-v01';let memos=loadMemos();let memoEditId=null;let officialEvents=[];let conventionEvents=[];let gymEvents=[];let gymStatus="pending";let gymUpdatedAt=null;let privateManualEvents=readJSON('taxi-v06-personal',[]);if(!Array.isArray(privateManualEvents))privateManualEvents=[];privateManualEvents=privateManualEvents.filter(validManual).slice(0,150);let localFixes=readJSON('taxi-v06-overrides',{});if(Array.isArray(localFixes))localFixes={};localFixes=sanitizeFixes(localFixes);let autoEvents=[];let autoUpdatedAt=null;let autoSourceStatuses=[];let autoPartial=false;let autoLoadError='';let weather=null;let lastFetched=null;let installEvent=null;
+const SPORT_VENUES=new Set(['高松市総合体育館','香川総合体育館','仏生山公園体育館','国分寺橘ノ丘総合運動公園','西部運動センター','かわなべスポーツセンター','東部運動公園','亀水運動センター','りんくうスポーツ公園','牟礼総合体育館','香南体育館','ホタルと文化の里運動場グラウンド','牟礼中央公園運動センター']);
+const KEY='takamatsu-taxi-memos-v01';let memos=loadMemos();let memoEditId=null;let officialEvents=[];let conventionEvents=[];let gymEvents=[];let gymStatus="pending";let gymUpdatedAt=null;let gymMonths=[];let gymWarnings=[];let privateManualEvents=readJSON('taxi-v06-personal',[]);if(!Array.isArray(privateManualEvents))privateManualEvents=[];privateManualEvents=privateManualEvents.filter(validManual).slice(0,150);let localFixes=readJSON('taxi-v06-overrides',{});if(Array.isArray(localFixes))localFixes={};localFixes=sanitizeFixes(localFixes);let autoEvents=[];let autoUpdatedAt=null;let autoSourceStatuses=[];let autoPartial=false;let autoLoadError='';let weather=null;let lastFetched=null;let installEvent=null;
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 function nowJST(){return new Date();}function parts(date){let d=new Date(date);return{h:Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',hour:'2-digit',hourCycle:'h23'}).format(d)),day:Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',day:'numeric'}).format(d)),w:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',weekday:'short'}).format(d),date:new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}}
 function fmtDate(d){return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(d))}
@@ -195,7 +197,7 @@ function ymdTime(day,time){return time?`${day}T${time}:00+09:00`:null}
 function valueTime(iso){return iso?shortTime(iso):''}
 function effectiveEvents(){const all=[...officialEvents,...conventionEvents,...gymEvents,...privateManualEvents];return all.map(x=>{let over=localFixes[x.id];return over?{...x,...over,wasEdited:true}:x})}
 function rebuildEvents(){autoEvents=effectiveEvents();renderAll();renderAutoEvents();renderConventionList()}
-function scaleForced(a){const forced=a.scaleOverride;if(forced&&forced!=='auto')return{key:forced,label:{large:'大規模候補',medium:'中規模候補',small:'小規模候補',limited:'関係者向け',unknown:'規模不明'}[forced]||'規模不明',reason:'本人が選択した参考分類'};if(a.sourceType==='gym')return{key:'unknown',label:'規模不明',reason:'体育館の月間予定に参加人数は掲載されていません'};if(a.sourceType==='convention'&&Number.isInteger(a.participants)){const k=a.participants>=1000?'large':a.participants>=300?'medium':'small';return{key:k,label:{large:'大規模候補',medium:'中規模候補',small:'小規模候補'}[k],reason:'大会全体の掲載参加予定人数から暫定分類（会場別ではない）'}}return null}
+function scaleForced(a){const forced=a.scaleOverride;if(forced&&forced!=='auto')return{key:forced,label:{large:'大規模候補',medium:'中規模候補',small:'小規模候補',limited:'関係者向け',unknown:'規模不明'}[forced]||'規模不明',reason:'本人が選択した参考分類'};if(a.sourceType==='gym')return{key:'unknown',label:'規模不明',reason:'スポーツ協会の月間予定には参加人数が掲載されていません。規模は利用者自身で補正できます'};if(a.sourceType==='convention'&&Number.isInteger(a.participants)){const k=a.participants>=1000?'large':a.participants>=300?'medium':'small';return{key:k,label:{large:'大規模候補',medium:'中規模候補',small:'小規模候補'}[k],reason:'大会全体の掲載参加予定人数から暫定分類（会場別ではない）'}}return null}
 function openEditor(id){const base=[...officialEvents,...conventionEvents,...gymEvents,...privateManualEvents].find(x=>x.id===id),event=autoEvents.find(x=>x.id===id);editingID=id||null;
  if(!event&&id)return;let e=event||{title:'',venue:'',date:jstDateKey(),endDate:'',startAt:null,endAt:null,participants:null,scaleOverride:'auto',personalNote:'',confidence:'unverified',sourceType:'manual'};
  $('editHeading').textContent=id?(e.sourceType==='manual'?'手動登録を編集':'公式催事の表示内容を補正'):'新しい宴会・催事を手動登録';
@@ -245,7 +247,7 @@ function periodEvents(range,all){const today=jstDateKey(),tomorrow=jstAddDays(to
 function eventSort(a,b){return a.date.localeCompare(b.date)||(a.startAt||'').localeCompare(b.startAt||'')||a.title.localeCompare(b.title,'ja')}
 function eventCard(a,compact=false){
  const scale=scaleEstimate(a),venueKey=a.venue==='あなぶきアリーナ香川'?'arena':a.venue==='サンポートホール高松'?'hall':a.venue==='高松市総合体育館'?'gym':'other',start=shortTime(a.startAt),end=shortTime(a.endAt);
- const door=shortTime(a.doorAt);const day=a.date.replaceAll('-','/')+((a.endDate&&a.endDate!==a.date)?' ～ '+a.endDate.replaceAll('-','/'):'');const venue=esc(a.venue),title=esc(a.sourceType==='gym'?(a.title||'').replace(/^\([月火水木金土日]\)\s*/,''):a.title),note=esc(a.note||'');
+ const area=a.sourceType==='gym'&&a.venueArea?`<span class="venue-area">（${esc(a.venueArea)}）</span>`:'';const door=shortTime(a.doorAt);const day=a.date.replaceAll('-','/')+((a.endDate&&a.endDate!==a.date)?' ～ '+a.endDate.replaceAll('-','/'):'');const venue=esc(a.venue),title=esc(a.sourceType==='gym'?(a.title||'').replace(/^\([月火水木金土日]\)\s*/,''):a.title),note=esc(a.note||'');
  const timelabel=a.venue==='あなぶきアリーナ香川'?'公表終演':'終了予定';const startLabel=a.venue==='あなぶきアリーナ香川'?'開演・開始':'開催開始';
  const timeStart=a.startAt?`<span class="time-strong">${esc(startLabel)} ${esc(start)}</span>`:'<span class="time-missing">開始時刻未公表</span>';
  const timeEnd=a.endAt?`<span class="time-strong">${esc(timelabel)} ${esc(end)}</span>`:'<span class="time-missing">終了時刻未公表</span>';
@@ -256,7 +258,7 @@ function eventCard(a,compact=false){
      watch=`<div class="event-watch">確認する参考時間帯：${esc(fmt(t-30*60000))}〜${esc(fmt(t+30*60000))}（終了予定時刻の前後30分）</div>`;
    }
  }
- const lead=`<div class="event-lead"><span class="size-mark ${scale.key}" title="${esc(scale.reason)}">${esc(scale.label)}</span><span class="venue-mark" data-venue="${venueKey}">${venue}</span>${a.wasEdited?'<span class="label-capsule label-user">本人補正</span>':''}${a.sourceType==='manual'?'<span class="label-capsule label-user">手動登録</span>':''}</div>`;
+ const lead=`<div class="event-lead"><span class="size-mark ${scale.key}" title="${esc(scale.reason)}">${esc(scale.label)}</span><span class="venue-mark" data-venue="${venueKey}">${venue}${area}</span>${a.wasEdited?'<span class="label-capsule label-user">本人補正</span>':''}${a.sourceType==='manual'?'<span class="label-capsule label-user">手動登録</span>':''}</div>`;
  return `<article class="signal-event" data-tier="${scale.key}">${lead}<h3 class="event-title-strong">${title}</h3><div class="event-time-band"><span>${esc(day)}</span>${a.doorAt?`<span class="time-door">開場 ${esc(door)}</span>`:''}${timeStart}${timeEnd}</div>${watch}${a.participants!=null?`<div class="eventinfo">大会全体の掲載参加予定人数：${esc(a.participants)}人（会場別・日別ではありません）</div>`:''}${compact?'':`<details class="event-extras"><summary>出典・注意事項</summary><div class="eventinfo">${note}｜${esc(scale.reason)}。実際の乗車需要は未検証です。</div></details><div class="event-actions">${a.sourceType==='manual'?'':`<a class="minilink" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">公式詳細 ↗</a>`}<button class="btn ghost sm" data-edit-event="${esc(a.id)}">${a.sourceType==='manual'?'編集する':'この端末で補正'}</button>${a.sourceType==='convention'||a.sourceType==='manual'||a.sourceType==='gym'?'':`<button class="btn ghost sm" data-prefill-event="${esc(a.id)}">時刻を確認してメモ登録</button>`}</div>`}</article>`;
 }
 function renderFocus(){
@@ -279,14 +281,14 @@ function renderAutoEvents(){
  const el=$('autoEventList'),meta=$('autoMeta');if(!el||!meta)return;
  let age=autoUpdatedAt?Math.round((Date.now()-Date.parse(autoUpdatedAt))/3600000):null;
  let stale=age!=null&&age>36;
- let counts={'あなぶきアリーナ香川':0,'サンポートホール高松':0,'高松市総合体育館':0};for(const a of autoEvents)if(a.venue in counts)counts[a.venue]++;let convCount=autoEvents.filter(a=>a.sourceType==='convention').length;
+ let counts={'あなぶきアリーナ香川':0,'サンポートホール高松':0};for(const a of autoEvents)if(a.venue in counts)counts[a.venue]++;let gymCount=gymEvents.length, gymVenueCount=new Set(gymEvents.map(a=>a.venue)).size;let convCount=autoEvents.filter(a=>a.sourceType==='convention').length;
  let statuses=autoSourceStatuses.map(x=>`${x.venue}: ${x.status==='ok'?'更新成功':x.status==='stale'?'前回データ（更新失敗）':x.status==='paused'?'調査中・取得停止':'取得失敗'}`).join('／');
- meta.textContent=autoLoadError?`取得状況：${autoLoadError}`:autoUpdatedAt?`最終収集：${fmtDate(autoUpdatedAt)}（${age}時間前）${stale?' ⚠ 情報が古い可能性':''}${autoPartial?' ⚠ 一部取得失敗':''}${statuses?'｜'+statuses:''}｜体育館:${{ok:'更新成功',partial:'一部取得成功',pending:'未実行',error:'取得失敗'}[gymStatus]||'確認中'}`:'まだ自動収集データがありません。GitHubの「催事データ更新とPages公開」を実行すると反映されます。';
+ meta.textContent=autoLoadError?`取得状況：${autoLoadError}`:autoUpdatedAt?`最終収集：${fmtDate(autoUpdatedAt)}（${age}時間前）${stale?' ⚠ 情報が古い可能性':''}${autoPartial?' ⚠ 一部取得失敗':''}${statuses?'｜'+statuses:''}｜スポーツ協会:${{ok:'更新成功',partial:'一部更新・要確認',pending:'未実行',error:'取得失敗'}[gymStatus]||'確認中'}${gymMonths.length?'（'+gymMonths.join('・')+'）':''}${gymWarnings.length?' ⚠ PDF取得の警告あり':''}`:'まだ自動収集データがありません。GitHubの「催事データ更新とPages公開」を実行すると反映されます。';
  document.querySelectorAll('[data-range]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.range===eventRange)));
  if(!autoEvents.length){$('venueCounts').textContent='取得0件';el.innerHTML='<div class="empty">自動取得した催事はまだありません。手動入力機能は引き続き利用できます。</div>';$('eventMore').hidden=true;renderFocus();return}
  const venueSel=$('venueFilter');const currentSel=venueSel.value;const venues=[...new Set(autoEvents.map(x=>x.venue))].sort((a,b)=>a.localeCompare(b,'ja'));venueSel.innerHTML='<option value="all">すべての会場</option>'+venues.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');venueSel.value=venues.includes(currentSel)?currentSel:'all';const venueFilter=venueSel.value,tierFilter=$('tierFilter').value;
  const filtered=periodEvents(eventRange,autoEvents).filter(a=>(venueFilter==='all'||a.venue===venueFilter)&&(tierFilter==='all'||scaleEstimate(a).key===tierFilter)).sort(eventSort);
- $('venueCounts').textContent=`表示対象 ${filtered.length}件 ／ 全取得 アリーナ ${counts['あなぶきアリーナ香川']}件・サンポート ${counts['サンポートホール高松']}件・体育館 ${counts['高松市総合体育館']}件・公開大会 ${convCount}件（他情報源と重複する場合あり）`;
+ $('venueCounts').textContent=`表示対象 ${filtered.length}件 ／ 取得総数：スポーツ ${gymCount}件（${gymVenueCount}施設）・アリーナ ${counts['あなぶきアリーナ香川']}件・サンポート ${counts['サンポートホール高松']}件・公開大会 ${convCount}件（重複を含む）`;
  el.innerHTML=filtered.slice(0,eventLimit).map(a=>eventCard(a)).join('')||'<div class="empty">この条件に該当する催事はありません。期間や規模を変更してください。</div>';
  const more=$('eventMore');more.hidden=filtered.length<=eventLimit;if(!more.hidden)more.textContent=`さらに表示（残り ${filtered.length-eventLimit} 件）`;
  renderFocus();
@@ -306,19 +308,20 @@ async function refreshGymEvents(){
   const res=await fetch('./data/gym_events.json?t='+Date.now(),{cache:'no-store',signal:ctrl.signal});clearTimeout(timer);
   if(!res.ok)throw Error('HTTP '+res.status);
   const data=await res.json();
-  if(data.schema!==1||!Array.isArray(data.events)||data.events.length>250||
-    !['ok','partial','pending','error'].includes(data.status))throw Error('体育館JSONの形式が異なります');
+  if(data.schema!==1||!Array.isArray(data.events)||data.events.length>800||
+    !['ok','partial','pending','error'].includes(data.status))throw Error('スポーツ施設JSONの形式が異なります');
   const matches=data.events.filter(a=>a&&/^gym-[0-9a-f]{16}$/.test(a.id)&&
     typeof a.title==='string'&&a.title.length>0&&a.title.length<=120&&
     /^20\d{2}-\d{2}-\d{2}$/.test(a.date)&&
     (!a.endDate||/^20\d{2}-\d{2}-\d{2}$/.test(a.endDate)&&a.endDate>=a.date)&&
-    a.venue==='高松市総合体育館'&&a.zone==='station'&&
+    SPORT_VENUES.has(a.venue)&&(a.zone==='other'||(a.venue==='高松市総合体育館'&&a.zone==='station'))&&
+    (!a.venueArea||(typeof a.venueArea==='string'&&a.venueArea.length<=40))&&
     typeof a.url==='string'&&a.url.startsWith('https://www.taka-spo.or.jp/pdf/schedule/')&&a.url.toLowerCase().endsWith('.pdf'));
-  if(matches.length!==data.events.length)throw Error('体育館データに不正な催事が含まれます');
+  if(matches.length!==data.events.length)throw Error('スポーツ施設データに不正な催事が含まれます');
   gymEvents=matches.map(a=>({...a,doorAt:null,startAt:null,endAt:null,participants:null,
-    note:'高松市スポーツ協会の公式月間予定（時刻・人数は未公表）',sourceType:'gym'}));
-  gymStatus=data.status;gymUpdatedAt=data.updatedAt;rebuildEvents();
- }catch(err){gymStatus='error';console.warn('高松市総合体育館データ',err);rebuildEvents();}
+    note:a.note||'高松市スポーツ協会の公式月間予定（時刻・人数は未公表）',sourceType:'gym'}));
+  gymStatus=data.status;gymUpdatedAt=data.updatedAt;gymMonths=Array.isArray(data.months)?data.months.filter(m=>/^20\d{2}-\d{2}$/.test(m)).slice(0,2):[];gymWarnings=Array.isArray(data.warnings)?data.warnings.slice(0,4):[];rebuildEvents();
+ }catch(err){gymStatus='error';console.warn('高松市スポーツ施設データ',err);rebuildEvents();}
 }
 async function refreshConventions(){try{
  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),12000);
