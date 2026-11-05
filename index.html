@@ -1236,4 +1236,181 @@ html.v07n[data-theme="day"] .wx-link:visited{
 })();
 </script>
 
+
+<!-- v0.7p 催事カードの省スペース化 -->
+<style>
+@media(max-width:640px){
+
+  /* カード本体の余白 */
+  #autoEventList .signal-event,
+  #focusCards .signal-event{
+    padding:9px 10px;
+    margin-bottom:6px;
+    border-radius:11px;
+  }
+
+  /* 規模と日付を同じ行へ */
+  #autoEventList .event-lead,
+  #focusCards .event-lead{
+    display:grid;
+    grid-template-columns:max-content minmax(0,1fr);
+    align-items:center;
+    column-gap:7px;
+    row-gap:4px;
+    margin:0 0 5px;
+  }
+
+  #autoEventList .event-lead .size-mark,
+  #focusCards .event-lead .size-mark{
+    grid-column:1;
+    padding:3px 6px;
+    font-size:11px;
+    line-height:1.25;
+  }
+
+  #autoEventList .signal-event .event-day-strong,
+  #focusCards .signal-event .event-day-strong{
+    grid-column:2;
+    min-width:0;
+    font-size:12px;
+    line-height:1.3;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  /* 会場名は次の行 */
+  #autoEventList .event-lead .venue-mark,
+  #focusCards .event-lead .venue-mark{
+    grid-column:1 / -1;
+    min-width:0;
+    font-size:13px;
+    line-height:1.35;
+    gap:5px;
+  }
+
+  #autoEventList .event-lead .label-capsule,
+  #focusCards .event-lead .label-capsule{
+    grid-column:1 / -1;
+  }
+
+  /* 時刻欄 */
+  #autoEventList .signal-event .event-time-band,
+  #focusCards .signal-event .event-time-band{
+    margin:0 0 4px;
+    gap:4px;
+    font-size:11px;
+    line-height:1.3;
+  }
+
+  #autoEventList .event-time-band span,
+  #focusCards .event-time-band span{
+    padding:3px 6px;
+    font-size:11px;
+    line-height:1.35;
+  }
+
+  /* 催事名を読みやすく、余白は少なく */
+  #autoEventList .signal-event .event-title-strong,
+  #focusCards .signal-event .event-title-strong{
+    font-size:14px;
+    line-height:1.4;
+    margin:0 0 4px;
+  }
+
+  /* 参加人数・参考時間帯 */
+  #autoEventList .signal-event .eventinfo,
+  #focusCards .signal-event .eventinfo{
+    font-size:12px;
+    line-height:1.4;
+    margin:4px 0 0;
+  }
+
+  #autoEventList .event-watch,
+  #focusCards .event-watch{
+    margin-top:4px;
+    font-size:11px;
+  }
+
+  /* 出典・注意事項 */
+  #autoEventList .event-extras{
+    margin:5px 0 0;
+    font-size:12px;
+  }
+
+  #autoEventList .event-extras summary{
+    padding:3px 0;
+    font-size:12px;
+  }
+
+  /* 詳細・補正ボタン */
+  #autoEventList .signal-event .event-actions{
+    margin-top:6px;
+    gap:6px;
+  }
+
+  #autoEventList .event-actions a,
+  #autoEventList .event-actions button{
+    min-height:40px;
+    padding:7px 9px;
+    font-size:12px;
+  }
+}
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  // 開始・終了の両方が未公表なら1つに統合
+  function compactCards(host){
+    if(!host)return;
+
+    host.querySelectorAll('.signal-event').forEach(card=>{
+      const band=card.querySelector('.event-time-band');
+      if(!band)return;
+
+      const missing=band.querySelectorAll('.time-missing');
+
+      if(missing.length===2){
+        missing[0].textContent='時刻未公表';
+        missing[0].title=
+          '開始時刻・終了時刻とも未公表';
+        missing[1].remove();
+      }
+    });
+  }
+
+  // 催事の再読み込み後にも適用する
+  ['autoEventList','focusCards'].forEach(id=>{
+    const host=document.getElementById(id);
+    if(!host)return;
+
+    compactCards(host);
+
+    new MutationObserver(()=>{
+      compactCards(host);
+    }).observe(host,{
+      childList:true,
+      subtree:true
+    });
+  });
+
+  // バージョン表示
+  document.title=
+    document.title.replace('v0.7o','v0.7p');
+
+  const pill=document.querySelector('.headright .pill');
+  if(pill){
+    pill.textContent=
+      pill.textContent.replace('v0.7o','v0.7p');
+  }
+
+  const foot=document.querySelector('footer.foot');
+  if(foot&&foot.firstChild&&foot.firstChild.nodeType===3){
+    foot.firstChild.nodeValue=
+      foot.firstChild.nodeValue.replace('v0.7o','v0.7p');
+  }
+})();
+</script>
+
 </body></html>
