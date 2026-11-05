@@ -4,7 +4,15 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#081623"><meta name="description" content="高松市のタクシー乗務員向け、天候と公式催事の開場・開演・終演時刻を整理するPWA（試作版）。">
   <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="signal-192.png"><link rel="apple-touch-icon" href="signal-192.png">
-  <title>高松タクシー・シグナル v0.7k</title>
+  <title>高松タクシー・シグナル v0.7l</title>
+<script>
+(function(){
+  var stored=null;
+  try{stored=localStorage.getItem('taxi-signal-theme-v07l')}catch(e){}
+  var systemDay=!!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.setAttribute('data-theme',stored==='day'||stored==='night'?stored:(systemDay?'day':'night'));
+})();
+</script>
   <style>
 /* v0.6: event-first simple layout; map/guess-score sections removed */
 .event-time-band .time-door{color:#b3e6e3;font-weight:650;background:#1d4550;border-radius:5px;padding:4px 8px}.stat-value#nextEv{font-size:clamp(16px,1.55vw,21px);line-height:1.5;overflow-wrap:anywhere}.pulse-stats{margin-top:12px}
@@ -103,7 +111,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 
  .venue-area{font-size:11px;font-weight:650;color:#9fc4d0}
 
-/* v0.7k 催事画面の視認性向上 */
+/* v0.7l 催事画面の視認性向上 */
 #view-events #venueCounts,#view-events .tier-explainer,#view-events #autoMeta{display:none}
 .signal-event .event-day-strong{font-size:15px;font-weight:900;color:#f3faff;font-variant-numeric:tabular-nums;white-space:nowrap}
 .signal-event .event-lead{margin-bottom:8px}
@@ -112,7 +120,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 .signal-event .event-title-strong{margin:0 0 7px;font-size:16px}
 @media(max-width:580px){.signal-event .event-day-strong{font-size:14px}.signal-event .event-time-band .time-strong,.signal-event .event-time-band .time-door{font-size:13px}.signal-event .event-title-strong{font-size:15px}}
 
-/* v0.7k 新規登録を集約 */
+/* v0.7l 新規登録を集約 */
 .quick-manual{margin-top:18px;margin-bottom:18px;padding:16px 18px}
 .quick-manual-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .quick-manual-heading h2{margin:0;font-size:20px}
@@ -124,10 +132,90 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 .editor-more{padding:9px 0;margin:7px 0;border-top:1px solid var(--border)}
 .editor-more>summary{cursor:pointer;color:#b6dce8;font-size:13px;margin-bottom:9px}
 @media(max-width:580px){.quick-manual-heading button{width:100%}}
+/* v0.7l 昼間・夜間モード切替（このブロックは既存CSSの末尾に追加） */
+.theme-toggle{border:1px solid #7096a7;border-radius:10px;min-height:36px;padding:6px 10px;background:#274a5d;color:#f4ffff;font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer;line-height:1.15}
+.theme-toggle:focus-visible{outline:3px solid #f6c75f;outline-offset:2px}
+@media(max-width:580px){.topinner{gap:7px}.headright{gap:7px}.theme-toggle{font-size:12px;min-height:33px;padding:5px 8px}.brand b{font-size:13px}}
+@media(max-width:370px){.brand b{font-size:12px}.theme-toggle{padding:5px 6px}.headright{gap:5px}.topinner{gap:5px}}
+html[data-theme="night"]{color-scheme:dark;--ink:#f0f7fa;--sub:#c6dbe4;--bg:#172f40;--card:#254556;--card2:#2b5265;--border:#4a6c7a;--accent:#77e2dc;--shadow:0 6px 18px #081d2b40}
+html[data-theme="night"] body{background:linear-gradient(180deg,#1d384b,#152b3b 72%)}
+html[data-theme="night"] .topbar{background:#142c3beb}
+html[data-theme="night"] .weather-strip{background:#254556;border-color:#57798a}
+html[data-theme="night"] .focus-panel{background:linear-gradient(135deg,#28495d,#224457);border-color:#557789}
+html[data-theme="night"] .signal-event{background:linear-gradient(120deg,#2b4c5d,#234456);border-color:#577789}
+html[data-theme="night"] .card,html[data-theme="night"] .stat,html[data-theme="night"] .convention-panel,html[data-theme="night"] .convention-row,html[data-theme="night"] .event,html[data-theme="night"] .source,html[data-theme="night"] .zone{background:#254556;border-color:#557687}
+html[data-theme="night"] .pulse-stats>div{background:#1d3b4d;border-color:#557687}
+html[data-theme="night"] .time-strong,html[data-theme="night"] .time-missing{background:#1b394b;border-color:#57798a}
+html[data-theme="night"] .tab,html[data-theme="night"] .focus-pill,html[data-theme="night"] .rangebutton,html[data-theme="night"] .venuefilters select{background:#24485b;border-color:#55798a;color:#effaff}
+html[data-theme="night"] .tab[aria-selected="true"],html[data-theme="night"] .focus-pill[aria-pressed="true"],html[data-theme="night"] .rangebutton[aria-pressed="true"]{background:#77e2dc;color:#0b2b37}
+html[data-theme="night"] .theme-toggle{background:#2f5264;color:#f5fcff}
+html[data-theme="day"]{color-scheme:light;--ink:#173246;--sub:#4b6170;--bg:#edf3f7;--card:#ffffff;--card2:#eaf2f6;--border:#b8cad6;--accent:#176d7e;--amber:#a45c0c;--muted:#627785;--shadow:0 6px 22px #17344912}
+html[data-theme="day"] body{background:linear-gradient(180deg,#e5eef5,#f4f8fa 65%);color:var(--ink)}
+html[data-theme="day"] .topbar{background:#f9fcffef;border-bottom-color:#c6d5df}
+html[data-theme="day"] .brand,html[data-theme="day"] .clock,html[data-theme="day"] .brand b{color:#173246}
+html[data-theme="day"] .theme-toggle{background:#e0edf2;border-color:#8dafbd;color:#164a5b}
+html[data-theme="day"] .weather-strip{background:#fff;border-color:#bdd0da;color:#173246}
+html[data-theme="day"] .wx-primary-text small,html[data-theme="day"] .rain-status small{color:#536b78}
+html[data-theme="day"] .focus-panel{background:#fff;border-color:#bdcfdc;color:#173246}
+html[data-theme="day"] .focus-panel:before{display:none}
+html[data-theme="day"] .card,html[data-theme="day"] .stat,html[data-theme="day"] .convention-panel,html[data-theme="day"] .convention-row,html[data-theme="day"] .event,html[data-theme="day"] .source,html[data-theme="day"] .zone,html[data-theme="day"] .focus-placeholder{background:#fff;border-color:#bccdd8;color:#173246}
+html[data-theme="day"] .signal-event{background:linear-gradient(120deg,#fff,#f5f9fc);border-color:#bfd0dc;color:#173246}
+html[data-theme="day"] .signal-event[data-tier="large"]{border-left-color:#c55243}
+html[data-theme="day"] .signal-event[data-tier="medium"]{border-left-color:#bd8a26}
+html[data-theme="day"] .signal-event[data-tier="small"]{border-left-color:#2e8994}
+html[data-theme="day"] .signal-event[data-tier="unknown"]{border-left-color:#6b8393}
+html[data-theme="day"] .signal-event .event-day-strong,html[data-theme="day"] .event-title-strong,html[data-theme="day"] .venue-mark,html[data-theme="day"] .event-time-band,html[data-theme="day"] .convention-name,html[data-theme="day"] .convention-sub,html[data-theme="day"] .convention-panel h3{color:#173246}
+html[data-theme="day"] .venue-mark:before{color:#176d7e}
+html[data-theme="day"] .venue-mark[data-venue="arena"]:before{color:#4468a1}
+html[data-theme="day"] .venue-mark[data-venue="gym"],html[data-theme="day"] .venue-area{color:#305e76}
+html[data-theme="day"] .time-strong{background:#e4f1f4;border-color:#a1c3d0;color:#194b61}
+html[data-theme="day"] .time-missing{background:#f2f6f9;border-color:#c2d1db;color:#435b6c}
+html[data-theme="day"] .event-time-band .time-door{background:#e4f4ef;border:1px solid #a5cabb;color:#155e51}
+html[data-theme="day"] .event-watch{color:#14666e}
+html[data-theme="day"] .eventinfo,html[data-theme="day"] .event-extras,html[data-theme="day"] .event-caution,html[data-theme="day"] .event-empty-note,html[data-theme="day"] .convention-meta,html[data-theme="day"] .guide-note,html[data-theme="day"] .smallprint,html[data-theme="day"] .foot,html[data-theme="day"] .tagline,html[data-theme="day"] .subtle,html[data-theme="day"] .source .desc,html[data-theme="day"] .source .ext,html[data-theme="day"] .focus-placeholder{color:#4b6170}
+html[data-theme="day"] .foot a,html[data-theme="day"] a{color:#155d77}
+html[data-theme="day"] .event-extras summary,html[data-theme="day"] .more-registration summary,html[data-theme="day"] .editor-more summary,html[data-theme="day"] .rain-details summary,html[data-theme="day"] .notice-compact details summary{color:#155e75}
+html[data-theme="day"] .pulse-stats>div{background:#f0f5f9;border-color:#c4d5df}
+html[data-theme="day"] .pulse-stats small{color:#506779}
+html[data-theme="day"] .tab,html[data-theme="day"] .focus-pill,html[data-theme="day"] .rangebutton{background:#eaf1f5;border-color:#b4cbd5;color:#214457}
+html[data-theme="day"] .tab[aria-selected="true"],html[data-theme="day"] .focus-pill[aria-pressed="true"],html[data-theme="day"] .rangebutton[aria-pressed="true"]{background:#176d7e;border-color:#176d7e;color:#fff}
+html[data-theme="day"] .btn{background:#176d7e;color:#fff}
+html[data-theme="day"] .btn.secondary,html[data-theme="day"] .btn.ghost{background:#edf4f7;border:1px solid #aec6d2;color:#174a62}
+html[data-theme="day"] .minilink,html[data-theme="day"] .source:hover{background:#e6f2f5;color:#135673;border-color:#aec8d3}
+html[data-theme="day"] .convention-venue{color:#155f69}
+html[data-theme="day"] .convention-actions button,html[data-theme="day"] .convention-actions a{background:#e6f2f5;border-color:#aac4cf;color:#174b60}
+html[data-theme="day"] .size-mark.unknown{background:#e7eef3;color:#34596c;border-color:#b3c8d3}
+html[data-theme="day"] .size-mark.large{background:#fbe6e3;color:#9e3026;border-color:#d89b95}
+html[data-theme="day"] .size-mark.medium{background:#fff0cc;color:#875711;border-color:#dcc088}
+html[data-theme="day"] .size-mark.small{background:#dff3f2;color:#155c63;border-color:#8dc4c1}
+html[data-theme="day"] .size-mark.limited{background:#ede8f9;color:#5a4084;border-color:#b5a5d1}
+html[data-theme="day"] .label-capsule{color:#365669;border-color:#a6bfcb}
+html[data-theme="day"] .label-official{color:#146a61;border-color:#8bbcb6}
+html[data-theme="day"] .label-user{color:#84550b;border-color:#c6a566}
+html[data-theme="day"] .field label{color:#224456}
+html[data-theme="day"] .field input,html[data-theme="day"] .field select,html[data-theme="day"] .field textarea,html[data-theme="day"] .venuefilters select,html[data-theme="day"] .timecontrols select,html[data-theme="day"] #editorDlg input,html[data-theme="day"] #editorDlg select,html[data-theme="day"] #editorDlg textarea{background:#fff;border:1px solid #b1c5d2;color:#173449}
+html[data-theme="day"] .field option{background:#fff;color:#173449}
+html[data-theme="day"] #editorDlg{background:#fff;color:#173246;border-color:#a6bdca}
+html[data-theme="day"] #editorDlg .editor-actions button{background:#e4f0f4;color:#173449;border-color:#acc6d0}
+html[data-theme="day"] #editorDlg .editor-actions button.primary{background:#176d7e;color:#fff}
+html[data-theme="day"] .guide-note{background:#f0f8f6;border-left-color:#2e8d83;color:#354f5e}
+html[data-theme="day"] .rain-details-body{background:#fff;border-color:#b6ccd8;box-shadow:0 9px 22px #12344926;color:#173246}
+html[data-theme="day"] .rain-details-body .rain-link{color:#176078}
+html[data-theme="day"] .rain-label{background:#fff0d8;border-color:#d9b987;color:#704313}
+html[data-theme="day"] .rain-status.rain-danger .rain-label{background:#9c3138;border-color:#cc696a;color:#fff}
+html[data-theme="day"] .rain-status.rain-caution .rain-label{background:#84600e;border-color:#b49b59;color:#fff}
+html[data-theme="day"] .notice,html[data-theme="day"] .notice-compact{background:#fff3d9;border-color:#d5be84;color:#704c13}
+html[data-theme="day"] .notice strong,html[data-theme="day"] .notice-compact strong{color:#674412}
+html[data-theme="day"] .install{background:#e5f6ee;border-color:#76bda7;color:#174739}
+html[data-theme="day"] .install p{color:#3d6256}
+html[data-theme="day"] .rain-details-body small{color:#536979}
+html[data-theme="day"] .quick-manual>p{color:#4b6170}
+html[data-theme="day"] .offline{background:#fff0e4;border-color:#cfab82;color:#724521}
+
 </style>
 </head>
 <body>
-<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7k</span><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
+<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7l</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
     <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub"></small></div></div>
@@ -158,7 +246,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
  <p class="smallprint">大会が複数会場にまたがる場合、掲載参加人数を各会場に割り振りません。公式掲載のない宴会は本人の未確認メモとして区別します。</p></section>
  <div class="sectionhead" id="legacyMemoHead"><div><h2>交通・運行情報をメモ</h2><p>現場で確認した時刻や交通障害を、ご自身の端末にメモできます。</p></div></div><div class="split" id="legacyMemoSplit"><div class="card"><form id="memoForm"><div class="formgrid"><div class="field"><label for="evType">情報の種類</label><select id="evType"><option value="event">催事・終演</option><option value="rail">鉄道の運休・遅延</option><option value="flight">航空便の到着・欠航</option><option value="port">船舶・フェリー</option><option value="road">交通障害</option><option value="other">その他</option></select></div><div class="field"><label for="evZone">対象地区</label><select id="evZone"></select></div></div><div class="field"><label for="evTitle">内容の名前</label><input id="evTitle" required maxlength="72" placeholder="例：アリーナでコンサート（終演時刻を確認）"></div><div class="formgrid"><div class="field"><label for="evAt">発生・終了予定日時</label><input id="evAt" type="datetime-local" required></div><div class="field"><label for="evSize">想定規模（任意）</label><select id="evSize"><option value="small">小・不明</option><option value="medium">中</option><option value="large">大</option></select></div></div><div class="field"><label for="evLink">情報源URL（任意）</label><input id="evLink" type="url" placeholder="https://..."></div><div class="field"><label for="evNote">備考（任意）</label><textarea id="evNote" maxlength="300" placeholder="終了時刻は未確定、交通規制あり、など"></textarea></div><button type="submit" class="btn">＋ この端末に登録する</button><p class="smallprint">各記録は入力者のメモです。公式に確認した情報と混同しないでください。保存はこのブラウザーのみに行われ、端末間同期・自動監視はありません。</p></form></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:9px"><h3 style="margin:0">登録済みメモ</h3><div><button class="btn ghost sm" id="exportEvents">書き出し</button><button class="btn ghost sm" id="importEvents">読み込み</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div><div id="eventList" style="margin-top:15px"></div></div></div></section>
   <section class="view" id="view-sources" role="tabpanel" hidden><div class="sectionhead"><div><h2>公式情報をすばやく開く</h2><p>リンク先の各公式サイトで必ず最新時刻と条件を確認してください。</p></div></div><div id="sourceAll" class="sourcegrid"></div><div class="card" style="margin-top:15px"><h3 style="margin-top:0">自動取得の範囲と限界</h3><p class="tagline">この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。あなぶきアリーナ香川とサンポートホール高松の公式催事日程に加え、高松市スポーツ協会が公開する13施設の月間PDFから、当月と翌月の催事をGitHub Actionsで定期収集します。スポーツ施設の開催時刻・参加人数はPDFにない限り空欄のままとします。掲載時刻を事実として表示し、乗車需要の確定予測には使用しません。サンメッセ香川はSSL証明書の調査中につき自動取得を停止しています。公式掲載の開催終了時刻は、実際の退場時刻・タクシー需要を意味しません。サイトの構造変更やアクセス制限で取得できない場合があります。鉄道運行、航空便、船舶、道路情報は依然として公式サイトへのリンクと手動メモです。自動で障害を検出したという表示はしません。</p><p class="tagline">気象庁の高解像度ナウキャストは公式サイトで直接確認します。このアプリの1時間単位の気象予報を、5分刻みの雨雲接近予測として扱わないでください。</p><p class="tagline">Open-Meteoの無料APIは非商用利用向けです。営業用サービス、商用配信、課金アプリとして公開する前に、商用ライセンスや別の正規情報源を確認してください。</p><p class="smallprint"><a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/en/terms">Open-Meteo利用規約</a>／気象データ：<a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/">Open-Meteo</a>（CC BY 4.0、予報に基づく表示をアプリ側で加工）</p></div></section>
-  <footer class="foot">高松タクシー・シグナル v0.7k（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
+  <footer class="foot">高松タクシー・シグナル v0.7l（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
 </main>
 <dialog id="editorDlg" aria-label="催事情報を登録・補正する"><form id="editForm">
 <h2 id="editHeading">新規登録</h2><p id="editSource" class="convention-meta"></p>
@@ -528,4 +616,28 @@ const e=document.getElementById('legacyMemoSplit');
 if(a&&b&&c&&d&&e){a.append(c);b.append(d,e);}
 })();
 </script>
+<script>
+(function(){
+  'use strict';
+  var key='taxi-signal-theme-v07l';
+  var toggle=document.getElementById('themeToggle');
+  var themeColor=document.querySelector('meta[name="theme-color"]');
+  if(!toggle)return;
+  function show(theme){
+    var isDay=theme==='day';
+    document.documentElement.setAttribute('data-theme',theme);
+    toggle.textContent=isDay?'☾ 夜':'☀ 昼';
+    toggle.setAttribute('aria-label',isDay?'夜間モードに切り替え':'昼間モードに切り替え');
+    toggle.setAttribute('title',isDay?'夜間モードに切り替え':'昼間モードに切り替え');
+    if(themeColor)themeColor.setAttribute('content',isDay?'#edf3f7':'#172f40');
+  }
+  show(document.documentElement.getAttribute('data-theme')==='day'?'day':'night');
+  toggle.addEventListener('click',function(){
+    var next=document.documentElement.getAttribute('data-theme')==='day'?'night':'day';
+    show(next);
+    try{localStorage.setItem(key,next)}catch(e){}
+  });
+})();
+</script>
+
 </body></html>
