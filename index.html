@@ -1413,4 +1413,149 @@ html.v07n[data-theme="day"] .wx-link:visited{
 })();
 </script>
 
+
+<!-- v0.7q 催事カード操作欄の整理 -->
+<style>
+@media(max-width:640px){
+
+ #autoEventList .signal-event{
+   padding:8px 10px;
+   margin-bottom:7px;
+ }
+
+ #autoEventList .signal-event .event-lead{
+   row-gap:3px;
+   margin-bottom:4px;
+ }
+
+ #autoEventList .signal-event .event-time-band{
+   margin-bottom:3px;
+ }
+
+ #autoEventList .signal-event .event-title-strong{
+   margin-bottom:2px;
+   line-height:1.35;
+ }
+
+ #autoEventList .signal-event .eventinfo{
+   margin-top:3px;
+ }
+
+ /* 出典と操作ボタンを横一列へ */
+ #autoEventList .signal-event .event-actions{
+   display:flex;
+   flex-wrap:wrap;
+   align-items:stretch;
+   gap:5px;
+   margin-top:6px;
+ }
+
+ #autoEventList .event-actions > .event-extras{
+   margin:0!important;
+   padding:0;
+   flex:0 0 auto;
+ }
+
+ #autoEventList .event-actions > .event-extras summary{
+   display:flex;
+   align-items:center;
+   justify-content:center;
+   min-height:40px;
+   padding:6px 8px;
+   border:1px solid var(--border);
+   border-radius:9px;
+   font-size:12px;
+   font-weight:700;
+   line-height:1.25;
+   white-space:nowrap;
+   cursor:pointer;
+ }
+
+ /* 出典を開いた時は全文表示 */
+ #autoEventList .event-actions > .event-extras[open]{
+   flex-basis:100%;
+   min-width:0;
+ }
+
+ #autoEventList .event-extras .eventinfo{
+   overflow-wrap:anywhere;
+   line-height:1.5;
+   margin-top:6px!important;
+ }
+
+ /* 公式詳細と補正ボタンを中央揃え */
+ #autoEventList .event-actions > a,
+ #autoEventList .event-actions > button{
+   display:inline-flex!important;
+   align-items:center!important;
+   justify-content:center!important;
+   text-align:center!important;
+   vertical-align:middle;
+   flex:1 1 auto;
+   min-width:0;
+   min-height:40px!important;
+   padding:6px 8px!important;
+   font-size:12px!important;
+   line-height:1.25;
+   white-space:nowrap;
+   margin:0!important;
+ }
+}
+</style>
+
+<script>
+(function(){
+ 'use strict';
+
+ // 出典を操作ボタンと同じ行へ移動
+ function tidyCards(){
+   const host=document.getElementById('autoEventList');
+   if(!host)return;
+
+   host.querySelectorAll('.signal-event').forEach(card=>{
+     const extra=card.querySelector(
+       ':scope > .event-extras'
+     );
+     const actions=card.querySelector(
+       ':scope > .event-actions'
+     );
+     if(!extra||!actions)return;
+
+     const summary=extra.querySelector('summary');
+     if(summary){
+       summary.textContent='出典・注意';
+       summary.title='出典・注意事項を表示';
+     }
+
+     actions.insertBefore(extra,actions.firstChild);
+   });
+ }
+
+ const host=document.getElementById('autoEventList');
+ if(host){
+   tidyCards();
+
+   // 催事を再読込した後もレイアウトを維持
+   new MutationObserver(tidyCards).observe(host,{
+     childList:true
+   });
+ }
+
+ // バージョン表示
+ document.title=document.title.replace('v0.7p','v0.7q');
+
+ const pill=document.querySelector('.headright .pill');
+ if(pill){
+   pill.textContent=
+     pill.textContent.replace('v0.7p','v0.7q');
+ }
+
+ const foot=document.querySelector('footer.foot');
+ if(foot&&foot.firstChild&&foot.firstChild.nodeType===3){
+   foot.firstChild.nodeValue=
+     foot.firstChild.nodeValue.replace('v0.7p','v0.7q');
+ }
+})();
+</script>
+
 </body></html>
