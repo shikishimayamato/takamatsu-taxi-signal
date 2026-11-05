@@ -1141,4 +1141,27 @@ html.v07n[data-theme="day"] .wx-link:visited{
 })();
 </script>
 
+
+<!-- v0.7n 天気バーの中央配置調整 -->
+<style>
+@media (max-width:640px) {
+  html.v07n .weather-strip {
+    grid-template-columns:
+      max-content minmax(0,1fr) max-content
+      !important;
+    column-gap:6px!important;
+  }
+
+  html.v07n .wx-link {
+    width:max-content;
+    flex:0 0 auto;
+  }
+
+  html.v07n .rain-status {
+    width:100%;
+    justify-content:center;
+  }
+}
+</style>
+  
 </body></html>
