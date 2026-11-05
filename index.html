@@ -1558,4 +1558,47 @@ html.v07n[data-theme="day"] .wx-link:visited{
 })();
 </script>
 
+
+<!-- v0.7r 強雨詳細の表示位置修正 -->
+<style>
+@media (max-width:640px){
+
+  /* 天気バーを詳細表示の基準にする */
+  html.v07n .weather-strip{
+    position:relative;
+    overflow:visible;
+  }
+
+  /* 詳細ボタン自体は位置の基準にしない */
+  html.v07n .rain-details{
+    position:static!important;
+  }
+
+  /* 詳細欄を天気バーの真下に表示 */
+  html.v07n .rain-details-body{
+    position:absolute!important;
+    top:calc(100% + 6px)!important;
+    left:8px!important;
+    right:8px!important;
+    width:auto!important;
+    max-width:none!important;
+    box-sizing:border-box;
+    max-height:60dvh;
+    overflow-y:auto;
+    padding:12px;
+    z-index:1001;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  /* 長い説明やリンクも画面内に収める */
+  html.v07n .rain-details-body .rain-link,
+  html.v07n .rain-details-body small{
+    max-width:100%;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+}
+</style>
+  
 </body></html>
