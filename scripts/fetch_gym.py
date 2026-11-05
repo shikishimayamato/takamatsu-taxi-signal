@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""高松市スポーツ協会の月間PDFを施設別に抽出（v0.7f）。
+"""高松市スポーツ協会の月間PDFを施設別に抽出（v0.7u）。
 
 当月・翌月・翌々月の公開済PDFを対象にする。2列×複数頁の行事予定から
 掲載される全13施設の行事（小規模・個人使用日を含む）を分離する。
@@ -26,7 +26,7 @@ ROOT = 'https://www.taka-spo.or.jp/'
 INDEX_URL = ROOT + 'schedule.html'
 ALLOWED_PATH = '/pdf/schedule/'
 OUT = Path(__file__).resolve().parent.parent / 'data' / 'gym_events.json'
-UA = 'TakamatsuTaxiSignal/0.7f (scheduled public schedule downloader)'
+UA = 'TakamatsuTaxiSignal/0.7u (scheduled public schedule downloader)'
 
 VENUES = (
     '高松市総合体育館', '香川総合体育館', '仏生山公園体育館',
@@ -57,13 +57,15 @@ def tidy(s: str) -> str:
     return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', s)).strip()
 
 
+def target_months(now: datetime) -> list[tuple[int, int]]:
+    """当月・翌月・翌々月。12月から翌年への切替も正確に扱う。"""
+    return [(now.year + (now.month - 1 + n) // 12,
+             (now.month - 1 + n) % 12 + 1) for n in range(3)]
+
+
 def discover_months(html: str, now: datetime) -> list[tuple[int, int, str]]:
-    """公式ページにリンクがある当月・翌月・翌々月。年越しも処理。"""
-    wanted = {(now.year, now.month)}
-    next_month = now.replace(day=28) + timedelta(days=5)
-    wanted.add((next_month.year, next_month.month))
-    second_next_month = next_month.replace(day=28) + timedelta(days=5)
-    wanted.add((second_next_month.year, second_next_month.month))  
+    """公式サイトに掲載された当月から翌々月のPDFリンクだけを返す。"""
+    wanted = set(target_months(now))
     result = set()
     for a in BeautifulSoup(html, 'html.parser').select('a[href]'):
         label = tidy(a.get_text(' ', strip=True))
@@ -200,7 +202,7 @@ def parse_pdf(data: bytes, year: int, month: int, source_url: str) -> list[dict]
                     'zone':'station' if venue=='高松市総合体育館' else 'other',
                     'url':source_url,'doorAt':None,'startAt':None,'endAt':None,
                     'participants':None,
-                    'note':'高松市スポーツ協会の月間行事予定（時刻・参加人数は未公表）'+('／PDF上で催事名が途中で切れている可能性があります' if cleaned.endswith('香川県') else ''),
+                    'note':'高松市スポーツ協会の月間行事予定（時刻・参加人数は未公表）',
                 })
     # 公式の2列表で全施設が見えなくなった場合、誤データを正常更新扱いしない。
     if len(all_venues)<10:
@@ -285,24 +287,35 @@ def main()->None:
     now=datetime.now(JST)
     payload={'schema':1,'updatedAt':now.isoformat(timespec='seconds'),
              'status':'error','source':INDEX_URL,'sourceName':'高松市スポーツ協会',
-             'events':[],'months':[],'warnings':[],'venues':list(VENUES)}
+             'events':[],'months':[],'monthStatus':{},
+             'warnings':[],'venues':list(VENUES)}
     with requests.Session() as session:
         session.headers.update({'User-Agent':UA,'Accept':'text/html,application/pdf'})
         try:
             html=fetch(session,INDEX_URL,1_000_000)
             months=discover_months(html,now)
-            if not months:raise ValueError('当月から翌々月の公式PDFリンクが見つかりません')
+            # 「未掲載」と「PDFは掲載されているが取得失敗」を厳密に区別する。
+            # 一覧ページが取得できない場合は未掲載と推定しない。
+            payload['monthStatus']={f'{y}-{m:02d}':'not_listed'
+                                    for y,m in target_months(now)}
+            if not months:
+                raise ValueError('当月から翌々月の公式PDFリンクが見つかりません')
             records={}
             for year,month,url in months:
+                key=f'{year}-{month:02d}'
                 try:
+                    payload['monthStatus'][key]='pending'
                     events=parse_pdf(fetch(session,url,8_000_000),year,month,url)
                     records.update({e['id']:e for e in events})
-                    payload['months'].append(f'{year}-{month:02d}')
+                    payload['months'].append(key)
+                    payload['monthStatus'][key]='ok'
                 except Exception as err:
-                    msg=f'{year}-{month:02d}: {type(err).__name__}: {err}'
+                    payload['monthStatus'][key]='error'
+                    msg=f'{key}: {type(err).__name__}: {err}'
                     payload['warnings'].append(msg)
                     print('注意: '+msg,flush=True)
             payload['events']=sorted(records.values(),key=lambda e:(e['date'],e['venue'],e['title']))
+            print('対象月の判定: '+json.dumps(payload['monthStatus'],ensure_ascii=False),flush=True)
             payload['status']=('partial' if payload['warnings'] else 'ok') if records else 'error'
         except Exception as err:
             msg=f'{type(err).__name__}: {err}'
