@@ -824,4 +824,321 @@ if(a&&b&&c&&d&&e){a.append(c);b.append(d,e);}
 })();
 </script>
 
+
+<!-- v0.7n 天気1行化・昼間配色・予報リンク -->
+<style>
+html.v07n[data-theme="day"]{
+ --bg:#f4f7f9;
+ --card:#fff;
+ --border:#a6bcc8;
+ --accent:#096579;
+}
+html.v07n[data-theme="day"] body{
+ background:#f4f7f9;
+ color:#173448;
+}
+html.v07n[data-theme="day"] .topbar{
+ background:#f8fafbee;
+ border-bottom-color:#acbdc7;
+}
+html.v07n[data-theme="day"] .weather-strip,
+html.v07n[data-theme="day"] .card,
+html.v07n[data-theme="day"] .focus-panel,
+html.v07n[data-theme="day"] .source,
+html.v07n[data-theme="day"] .convention-panel{
+ background:#fff;
+ border-color:#adbec9;
+}
+html.v07n[data-theme="day"] .signal-event{
+ background:#fff;
+ border-color:#b2c3cc;
+}
+html.v07n[data-theme="day"] .tab[aria-selected="true"],
+html.v07n[data-theme="day"] .focus-pill[aria-pressed="true"],
+html.v07n[data-theme="day"] .rangebutton[aria-pressed="true"]{
+ background:#096579;
+ border-color:#096579;
+ color:#fff;
+}
+html.v07n[data-theme="day"] .wx-symbol,
+html.v07n[data-theme="day"] .source:before{
+ color:#105b78;
+}
+html.v07n[data-theme="day"] .rain-status .rain-label{
+ background:#e8edf0;
+ border-color:#adc0c9;
+ color:#425b69;
+}
+html.v07n[data-theme="day"] .rain-status.rain-clear .rain-label{
+ background:#e1f1e9;
+ border-color:#8cbba4;
+ color:#24634b;
+}
+html.v07n[data-theme="day"] .rain-status.rain-caution .rain-label{
+ background:#f9e8c2;
+ border-color:#d4af62;
+ color:#77510c;
+}
+html.v07n[data-theme="day"] .rain-status.rain-danger .rain-label{
+ background:#aa333a;
+ border-color:#c15d63;
+ color:#fff;
+}
+html.v07n .wx-link{
+ display:flex;
+ align-items:center;
+ flex:1 1 190px;
+ min-width:0;
+ max-width:100%;
+ text-decoration:none;
+ color:inherit;
+}
+html.v07n .wx-link:focus-visible{
+ outline:3px solid var(--amber);
+ outline-offset:2px;
+ border-radius:6px;
+}
+html.v07n .wx-link:hover .wx-primary-text strong{
+ text-decoration:underline;
+}
+html.v07n[data-theme="day"] .wx-link,
+html.v07n[data-theme="day"] .wx-link:visited{
+ color:#173448;
+}
+@media(max-width:640px){
+ html.v07n .weather-strip{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,auto) auto!important;
+  grid-template-areas:"weather rain actions"!important;
+  gap:4px!important;
+  padding:6px 7px!important;
+  margin-top:5px!important;
+  align-items:center;
+  max-width:100%;
+  min-width:0;
+ }
+ html.v07n .wx-link{
+  grid-area:weather;
+  min-width:0;
+  overflow:hidden;
+ }
+ html.v07n .wx-primary{
+  display:flex;
+  align-items:center;
+  flex:1 1 auto;
+  min-width:0;
+  gap:3px;
+ }
+ html.v07n .wx-symbol{
+  flex:none;
+  font-size:16px;
+ }
+ html.v07n .wx-primary-text{
+  min-width:0;
+  overflow:hidden;
+ }
+ html.v07n .wx-primary-text strong{
+  font-size:12px;
+  line-height:1.25;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+ }
+ html.v07n .wx-primary-text small{
+  display:none;
+ }
+ html.v07n .rain-status{
+  grid-area:rain;
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:2px;
+  min-width:0;
+  flex:none;
+ }
+ html.v07n .rain-label{
+  font-size:10px;
+  line-height:1.2;
+  padding:5px 4px;
+  white-space:nowrap;
+  max-width:96px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+ }
+ html.v07n .rain-details summary{
+  font-size:10px;
+  white-space:nowrap;
+ }
+ html.v07n .wx-buttons{
+  grid-area:actions;
+  width:auto;
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  margin:0;
+  padding:0;
+ }
+ html.v07n .wx-buttons button{
+  font-size:14px;
+  min-height:35px;
+  height:35px;
+  padding:0;
+  width:34px;
+  min-width:34px;
+  border-radius:8px;
+  white-space:nowrap;
+  overflow:hidden;
+ }
+ html.v07n .wx-buttons button[hidden]{
+  display:none!important;
+ }
+}
+@media(max-width:360px){
+ html.v07n .weather-strip{
+  gap:2px!important;
+  padding:5px 6px!important;
+ }
+ html.v07n .wx-symbol{font-size:14px}
+ html.v07n .rain-label{font-size:9px;padding:4px 3px}
+ html.v07n .rain-details summary{font-size:9px}
+ html.v07n .wx-buttons button{
+  width:30px;
+  min-width:30px;
+  min-height:34px;
+  height:34px;
+ }
+}
+</style>
+<script>
+(function(){
+ 'use strict';
+ if(document.documentElement.classList.contains('v07n'))return;
+ document.documentElement.classList.add('v07n');
+
+ const url='https://weather.yahoo.co.jp/weather/jp/37/7200/37201.html';
+ const strip=document.querySelector('.weather-strip');
+ const primary=strip&&strip.querySelector('.wx-primary');
+
+ // 天気をタップすると予報サイトへ
+ if(primary){
+  const a=document.createElement('a');
+  a.className='wx-link';
+  a.href=url;
+  a.target='_blank';
+  a.rel='noopener noreferrer';
+  a.title='高松市の天気予報を開く';
+  a.setAttribute('aria-label','高松市の天気予報を開く');
+  strip.insertBefore(a,primary);
+  a.appendChild(primary);
+ }
+
+ // 気温と降水確率を短く表示
+ const main=document.getElementById('wxMain');
+ if(main){
+  const update=()=>{
+   const full=main.textContent;
+   if(full===main.dataset.v07nShort)return;
+   const m=full.match(/^(-?\d+|--)℃\s*\/\s*降水\s*(\d+|--)%/);
+   if(!m)return;
+   const short=m[1]+'℃ '+m[2]+'%';
+   main.dataset.v07nShort=short;
+   main.title=full;
+   main.textContent=short;
+  };
+  new MutationObserver(update).observe(main,{
+   subtree:true,childList:true,characterData:true
+  });
+  update();
+ }
+
+ // 強雨の判定を短く表示
+ const rain=document.querySelector('.rain-status');
+ const alert=document.getElementById('rainAlert');
+ if(rain&&alert){
+  const update=()=>{
+   const full=alert.textContent;
+   if(full===alert.dataset.v07nShort)return;
+   let short=full;
+   if(full.startsWith('強雨検出なし'))short='強雨検出なし';
+   else if(full.startsWith('強雨発生'))short='強雨発生';
+   else if(full.startsWith('強雨接近'))short='強雨接近';
+   else if(full.startsWith('周辺で強雨'))short='周辺強雨';
+   else if(full.startsWith('周辺に強雨'))short='周辺予測';
+   else if(full.includes('判定不能'))short='判定不能';
+   else if(full.includes('確認中'))short='確認中';
+   rain.classList.toggle('rain-clear',
+    full.startsWith('強雨検出なし'));
+   alert.dataset.v07nShort=short;
+   alert.title=full;
+   alert.textContent=short;
+  };
+  new MutationObserver(update).observe(alert,{
+   subtree:true,childList:true,characterData:true
+  });
+  update();
+ }
+
+ // 更新ボタンはマークだけにする
+ const refresh=document.getElementById('refresh');
+ if(refresh){
+  const update=()=>{
+   const full=refresh.textContent.trim();
+   if(full===refresh.dataset.v07nShort)return;
+   const short=full.includes('失敗')?'⚠':
+    full.includes('更新済')?'✓':
+    full.includes('取得中')?'…':'↻';
+   refresh.dataset.v07nShort=short;
+   refresh.title=full;
+   refresh.textContent=short;
+  };
+  new MutationObserver(update).observe(refresh,{
+   subtree:true,childList:true,characterData:true
+  });
+  update();
+ }
+
+ // ホーム追加はスマホで＋マークにする
+ const install=document.getElementById('installTop');
+ if(install){
+  const mq=window.matchMedia('(max-width:640px)');
+  const update=()=>{
+   install.textContent=mq.matches?'＋':'＋ ホームに追加';
+   install.title='ホーム画面に追加';
+   install.setAttribute('aria-label','ホーム画面に追加');
+  };
+  update();
+  if(mq.addEventListener)mq.addEventListener('change',update);
+ }
+
+ // 現在の確認先と情報源に追加
+ for(const id of ['sourceQuick','sourceAll']){
+  const host=document.getElementById(id);
+  if(!host||host.querySelector('[data-v07n-weather]'))continue;
+  const a=document.createElement('a');
+  a.className='source';
+  a.href=url;
+  a.target='_blank';
+  a.rel='noopener noreferrer';
+  a.dataset.v07nWeather='1';
+  const label=document.createElement('span');
+  label.className='name';
+  label.textContent='高松の天気予報';
+  a.appendChild(label);
+  host.insertBefore(a,host.firstChild);
+ }
+
+ // 表示上のバージョンを更新
+ document.title=document.title.replace(/v0\.7m/g,'v0.7n');
+ const pill=document.querySelector('.headright .pill');
+ if(pill)pill.textContent=pill.textContent.replace(/v0\.7m/g,'v0.7n');
+ const footer=document.querySelector('footer.foot');
+ if(footer&&footer.firstChild&&footer.firstChild.nodeType===3){
+  footer.firstChild.nodeValue=
+   footer.firstChild.nodeValue.replace(/v0\.7m/g,'v0.7n');
+ }
+})();
+</script>
+
 </body></html>
