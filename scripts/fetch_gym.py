@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """高松市スポーツ協会の月間PDFを施設別に抽出（v0.7f）。
 
-当月・翌月の公開済PDFのみを対象にする。2列×複数頁の行事予定から
+当月・翌月・翌々月の公開済PDFを対象にする。2列×複数頁の行事予定から
 掲載される全13施設の行事（小規模・個人使用日を含む）を分離する。
 原PDFに存在しない人数・時刻・タクシー需要規模は作らない。
 レイアウトが変わり見出しを検出できなければ、誤施設への割当を避ける。
@@ -58,7 +58,7 @@ def tidy(s: str) -> str:
 
 
 def discover_months(html: str, now: datetime) -> list[tuple[int, int, str]]:
-    """公式ページにリンクがある当月と翌月だけ。12月→1月も処理。"""
+    """公式ページにリンクがある当月・翌月・翌々月。年越しも処理。"""
     wanted = {(now.year, now.month)}
     next_month = now.replace(day=28) + timedelta(days=5)
     wanted.add((next_month.year, next_month.month))
@@ -205,7 +205,66 @@ def parse_pdf(data: bytes, year: int, month: int, source_url: str) -> list[dict]
     # 公式の2列表で全施設が見えなくなった場合、誤データを正常更新扱いしない。
     if len(all_venues)<10:
         raise ValueError(f'施設別の抽出が不足: {len(all_venues)}施設。PDFの配置を再確認してください。')
-    unique={e['id']:e for e in parsed}
+    # v0.7t: 毎月共通のPDF脚注除外と保守的な同一催事統合
+    def norm_event_title(value):
+        s = unicodedata.normalize('NFKC', value).casefold()
+        return re.sub(r'[\W_]+', '', s)
+
+    def is_pdf_footer(value):
+        s = tidy(value)
+        # 連絡先・ウェブアドレス・所在地。特定の住所や年月には依存しない。
+        contact = r'(?:https?\s*[:：]//|www\.|url\s*[:：]//|(?:^|\s)(?:tel|fax|電話|e-?mail)\s*[:：])'
+        address = r'\d+\s*丁目\s*\d+\s*番(?:地)?\s*\d+\s*号'
+        return bool(re.search(contact, s, re.I) or re.search(address, s))
+
+    def shared_event_alias(base, detailed):
+        # 「地域名（公式大会名）」のように、短い大会名が括弧内に丸ごとある場合のみ。
+        m = re.fullmatch(r'\s*(.*?)\s*[（(]\s*([^()（）]+)\s*[)）]\s*(.*?)\s*', detailed)
+        if not m or norm_event_title(m.group(2)) != norm_event_title(base):
+            return None
+        extra = tidy(m.group(1) + ' ' + m.group(3))
+        if len(norm_event_title(base)) < 10 or not 2 <= len(extra) <= 20:
+            return None
+        # 別競技・別部門・別の試合段階は誤統合を避ける。
+        independent = r'予選|決勝|準決勝|決定戦|敗者復活|女子|男子|個人|団体|午前|午後|第[0-9一二三四五六七八九十]+部|U[-ー]?[0-9]+'
+        if re.search(independent, extra, re.I):
+            return None
+        return extra
+
+    footer_rows = [e for e in parsed if is_pdf_footer(e['title'])]
+    unique = {e['id']: e for e in parsed if not is_pdf_footer(e['title'])}
+    merged_rows = []
+    groups = {}
+    for event in unique.values():
+        key = (event['date'], event.get('endDate', event['date']), event['venue'])
+        groups.setdefault(key, []).append(event)
+    for group in groups.values():
+        for first in group:
+            if first['id'] not in unique:
+                continue
+            for second in group:
+                if first is second or second['id'] not in unique:
+                    continue
+                # 時刻が両方に存在して相違する場合は独立開催とみなす。
+                if any(first.get(k) and second.get(k) and first[k] != second[k]
+                       for k in ('startAt', 'endAt', 'doorAt')):
+                    continue
+                short, long = sorted((first, second), key=lambda e: len(norm_event_title(e['title'])))
+                norm_short, norm_long = norm_event_title(short['title']), norm_event_title(long['title'])
+                alias = None if norm_short == norm_long else shared_event_alias(short['title'], long['title'])
+                if norm_short != norm_long and not alias:
+                    continue
+                if alias:
+                    # 元の短い催事のIDは変えず、端末内の補正履歴との対応を保持する。
+                    short['title'] = short['title'] + '（' + alias + '）'
+                    short['note'] += '／公式PDF内の同一大会表記を統合'
+                merged_rows.append((short['date'], short['venue'], long['title'], short['title']))
+                del unique[long['id']]
+                if long is first:
+                    break
+    print(f'PDF脚注の除外: {len(footer_rows)}件 / 同一催事の統合: {len(merged_rows)}件', flush=True)
+    for when, venue, duplicate_title, main_title in merged_rows:
+        print(f'統合: {when} {venue} / {duplicate_title} → {main_title}', flush=True)
     if len(unique)<15:
         raise ValueError('催事の抽出が極端に少ないため更新を中止します。')
     print(f'{year}-{month:02d}: {len(unique)}件／{len(all_venues)}施設を抽出',flush=True)
@@ -232,7 +291,7 @@ def main()->None:
         try:
             html=fetch(session,INDEX_URL,1_000_000)
             months=discover_months(html,now)
-            if not months:raise ValueError('当月・翌月の公式PDFリンクが見つかりません')
+            if not months:raise ValueError('当月から翌々月の公式PDFリンクが見つかりません')
             records={}
             for year,month,url in months:
                 try:
