@@ -1163,5 +1163,77 @@ html.v07n[data-theme="day"] .wx-link:visited{
   }
 }
 </style>
-  
+
+
+<!-- v0.7o 更新ボタンと期間選択の改善 -->
+<style>
+@media(max-width:640px){
+
+  /* 天気の更新ボタンを文字表示に */
+  html.v07n .wx-buttons #refresh{
+    width:62px!important;
+    min-width:62px!important;
+    padding:0 4px!important;
+    font-size:0!important;
+  }
+
+  html.v07n .wx-buttons #refresh::after{
+    content:"更新";
+    font-size:13px;
+    font-weight:750;
+  }
+
+  html.v07n .wx-buttons #refresh[title*="失敗"]::after{
+    content:"再試行";
+    font-size:11px;
+  }
+
+  html.v07n .wx-buttons #refresh:disabled::after{
+    content:"取得中";
+    font-size:11px;
+  }
+
+  /* 期間選択の4ボタンを必ず1行に */
+  #view-events .rangebar{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:5px!important;
+    width:100%;
+  }
+
+  #view-events .rangebar .rangebutton{
+    width:100%;
+    min-width:0!important;
+    padding:6px 2px!important;
+    font-size:clamp(11px,3vw,14px)!important;
+    white-space:nowrap;
+    text-align:center;
+  }
+}
+</style>
+
+<script>
+(function(){
+  // 「今後すべて」を「すべて」に短縮
+  const all=document.querySelector(
+    '#view-events .rangebutton[data-range="all"]'
+  );
+  if(all)all.textContent='すべて';
+
+  // バージョン表示
+  document.title=document.title.replace('v0.7n','v0.7o');
+
+  const pill=document.querySelector('.headright .pill');
+  if(pill){
+    pill.textContent=pill.textContent.replace('v0.7n','v0.7o');
+  }
+
+  const foot=document.querySelector('footer.foot');
+  if(foot&&foot.firstChild&&foot.firstChild.nodeType===3){
+    foot.firstChild.nodeValue=
+      foot.firstChild.nodeValue.replace('v0.7n','v0.7o');
+  }
+})();
+</script>
+
 </body></html>
