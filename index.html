@@ -473,7 +473,7 @@ const SOURCES=[
 {group:'道路',name:'本四高速 交通情報',desc:'瀬戸中央道などの通行止め・交通情報',url:'https://www.jb-honshi.co.jp/customer_index/traffic/'}
 ];
 const SPORT_VENUES=new Set(['高松市総合体育館','香川総合体育館','仏生山公園体育館','国分寺橘ノ丘総合運動公園','西部運動センター','かわなべスポーツセンター','東部運動公園','亀水運動センター','りんくうスポーツ公園','牟礼総合体育館','香南体育館','ホタルと文化の里運動場グラウンド','牟礼中央公園運動センター']);
-const KEY='takamatsu-taxi-memos-v01';let memos=loadMemos();let memoEditId=null;let officialEvents=[];let conventionEvents=[];let gymEvents=[];let gymStatus="pending";let gymUpdatedAt=null;let gymMonths=[];let gymWarnings=[];let privateManualEvents=readJSON('taxi-v06-personal',[]);if(!Array.isArray(privateManualEvents))privateManualEvents=[];privateManualEvents=privateManualEvents.filter(validManual).slice(0,150);let localFixes=readJSON('taxi-v06-overrides',{});if(Array.isArray(localFixes))localFixes={};localFixes=sanitizeFixes(localFixes);let autoEvents=[];let autoUpdatedAt=null;let autoSourceStatuses=[];let autoPartial=false;let autoLoadError='';let weather=null;let lastFetched=null;let installEvent=null;
+const KEY='takamatsu-taxi-memos-v01';let memos=loadMemos();let memoEditId=null;let officialEvents=[];let conventionEvents=[];let gymEvents=[];let gymStatus="pending";let gymUpdatedAt=null;let gymMonths=[];let gymMonthStatus={};let gymWarnings=[];let privateManualEvents=readJSON('taxi-v06-personal',[]);if(!Array.isArray(privateManualEvents))privateManualEvents=[];privateManualEvents=privateManualEvents.filter(validManual).slice(0,150);let localFixes=readJSON('taxi-v06-overrides',{});if(Array.isArray(localFixes))localFixes={};localFixes=sanitizeFixes(localFixes);let autoEvents=[];let autoUpdatedAt=null;let autoSourceStatuses=[];let autoPartial=false;let autoLoadError='';let weather=null;let lastFetched=null;let installEvent=null;
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 function nowJST(){return new Date();}function parts(date){let d=new Date(date);return{h:Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',hour:'2-digit',hourCycle:'h23'}).format(d)),day:Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',day:'numeric'}).format(d)),w:new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',weekday:'short'}).format(d),date:new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}}
 function fmtDate(d){return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(d))}
@@ -613,8 +613,12 @@ async function refreshGymEvents(){
   if(matches.length!==data.events.length)throw Error('スポーツ施設データに不正な催事が含まれます');
   gymEvents=matches.map(a=>({...a,doorAt:null,startAt:null,endAt:null,participants:null,
     note:a.note||'高松市スポーツ協会の公式月間予定（時刻・人数は未公表）',sourceType:'gym'}));
-  gymStatus=data.status;gymUpdatedAt=data.updatedAt;gymMonths=Array.isArray(data.months)?data.months.filter(m=>/^20\d{2}-\d{2}$/.test(m)).slice(0,2):[];gymWarnings=Array.isArray(data.warnings)?data.warnings.slice(0,4):[];rebuildEvents();
- }catch(err){gymStatus='error';console.warn('高松市スポーツ施設データ',err);rebuildEvents();}
+  gymStatus=data.status;gymUpdatedAt=data.updatedAt;gymMonths=Array.isArray(data.months)?data.months.filter(m=>/^20\d{2}-\d{2}$/.test(m)).slice(0,3):[];
+  gymMonthStatus=data.monthStatus && typeof data.monthStatus==='object' && !Array.isArray(data.monthStatus)
+    ? Object.fromEntries(Object.entries(data.monthStatus).filter(([m,status])=>
+        /^20\d{2}-(?:0[1-9]|1[0-2])$/.test(m) && ['ok','not_listed','error','pending'].includes(status))) : {};
+  gymWarnings=Array.isArray(data.warnings)?data.warnings.slice(0,4):[];rebuildEvents();
+ }catch(err){gymStatus='error';gymMonthStatus={};console.warn('高松市スポーツ施設データ',err);rebuildEvents();}
 }
 async function refreshConventions(){try{
  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),12000);
@@ -870,7 +874,9 @@ function renderStatusV07s() {
   const el = fetchStatusBoxV07s.querySelector('.fetch-status-text');
   const wanted = monthWindowV07s();
   const found = new Set(gymMonths || []);
-  const monthText = wanted.map(m => m + ': ' + (found.has(m) ? '取得済み' : '未収録（公式未公開・取得失敗等）')).join('／');
+  const monthLabels = {ok:'取得済み',not_listed:'公式一覧に未掲載',error:'取得失敗',pending:'取得処理中'};
+  const monthText = wanted.map(m => m + ': ' +
+    (monthLabels[gymMonthStatus[m]] || (found.has(m) ? '取得済み' : '未収録（状態未確認）'))).join('／');
   const gymText = ({ok:'取得成功',partial:'一部失敗',pending:'未実行',error:'取得失敗'})[gymStatus] || gymStatus;
   const sourceText = (autoSourceStatuses || []).map(a => a.venue + ': ' + ({ok:'成功',stale:'前回データ',paused:'取得停止',error:'失敗'})[a.status]).join('／');
   el.textContent = '体育館：' + gymText + '・' + gymEvents.length + '件\n' +
@@ -919,11 +925,11 @@ refreshRexamV07s();
 renderStatusV07s();
 // 表示上のバージョンだけ更新。元のテーマキーやキャッシュ名は変更しない。
 for (const el of [document.querySelector('title'), document.querySelector('.headright .pill')]) {
-  if (el) el.textContent = el.textContent.replace(/v0\.7[mnopqr]/g,'v0.7s');
+  if (el) el.textContent = el.textContent.replace(/v0\.7[mnopqr]/g,'v0.7u');
 }
 const footerV07s = document.querySelector('footer.foot');
 if (footerV07s && footerV07s.firstChild && footerV07s.firstChild.nodeType === 3) {
-  footerV07s.firstChild.nodeValue = footerV07s.firstChild.nodeValue.replace(/v0\.7[mnopqr]/g,'v0.7s');
+  footerV07s.firstChild.nodeValue = footerV07s.firstChild.nodeValue.replace(/v0\.7[mnopqr]/g,'v0.7u');
 }
 
 renderSources();renderAll();refreshWeather();refreshNowcast();refreshAutoEvents();refreshConventions();refreshGymEvents();if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW',err));
