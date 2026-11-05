@@ -786,6 +786,146 @@ function syncInstallButtons(){const installed=isStandaloneApp();$('installTop').
 syncInstallButtons();
 for(const mode of ['standalone','fullscreen','minimal-ui']){const mq=matchMedia('(display-mode: '+mode+')');if(mq.addEventListener)mq.addEventListener('change',syncInstallButtons);}
 $('installTop').addEventListener('click',showInstall);$('installHide').addEventListener('click',()=>$('installInfo').classList.remove('on'));$('installDo').addEventListener('click',async()=>{if(!installEvent)return;installEvent.prompt();await installEvent.userChoice;installEvent=null;$('installInfo').classList.remove('on')});window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e});window.addEventListener('appinstalled',()=>{ $('installInfo').classList.remove('on'); $('installTop').hidden=true; });
+// v0.7s 催事の安全な重複整理・レクザム表示・取得状況
+let rexamRowsV07s = [];
+let rexamStatusV07s = '確認中';
+let rexamUpdatedV07s = '';
+let duplicateCountV07s = 0;
+const originalEffectiveV07s = effectiveEvents;
+const normalizeTitleV07s = value => String(value || '').normalize('NFKC').toLowerCase().replace(/[\s\u3000「」『』・･、。，,.:：;；!！?？()（）\[\]【】\-―－_]/g, '');
+const normalizeVenueV07s = value => String(value || '').normalize('NFKC').replace(/[\s\u3000]/g, '').replace(/（[^）]*）$/, '').replace(/\([^)]*\)$/, '');
+function overlapV07s(a, b) {
+  return (a.date || '') <= (b.endDate || b.date || '') &&
+         (b.date || '') <= (a.endDate || a.date || '');
+}
+function sameEventV07s(a, b) {
+  if (a.sourceType === 'manual' || b.sourceType === 'manual') return false;
+  if (a.sourceType === b.sourceType && a.id !== b.id) return false;
+  if (!a.title || !b.title || !a.venue || !b.venue) return false;
+  if (normalizeTitleV07s(a.title) !== normalizeTitleV07s(b.title)) return false;
+  if (normalizeVenueV07s(a.venue) !== normalizeVenueV07s(b.venue)) return false;
+  if (!overlapV07s(a, b)) return false;
+  // 両方に開演時刻などの記載があり、異なる場合は別公演として残す。
+  if (a.startAt && b.startAt && a.startAt !== b.startAt) return false;
+  if (a.endAt && b.endAt && a.endAt !== b.endAt) return false;
+  return true;
+}
+function qualityV07s(item) {
+  return (item.wasEdited ? 1000 : 0) +
+    (item.startAt ? 20 : 0) + (item.endAt ? 20 : 0) +
+    (item.doorAt ? 7 : 0) + (item.participants != null ? 8 : 0) +
+    (item.sourceType === 'rexam' ? 3 : 0) +
+    (item.endDate && item.endDate !== item.date ? 2 : 0);
+}
+function dedupeV07s(rows) {
+  const grouped = new Map();
+  const clean = [];
+  let duplicates = 0;
+  for (const item of rows) {
+    if (!item || !item.date || !item.title) continue;
+    const k = normalizeVenueV07s(item.venue) + '|' + normalizeTitleV07s(item.title);
+    if (!grouped.has(k)) grouped.set(k, []);
+    const group = grouped.get(k);
+    const idx = group.findIndex(existing => sameEventV07s(existing, item));
+    if (idx < 0) {group.push(item); clean.push(item); continue;}
+    duplicates++;
+    if (qualityV07s(item) > qualityV07s(group[idx])) {
+      const old = group[idx];
+      const at = clean.indexOf(old);
+      if (at !== -1) clean[at] = item;
+      group[idx] = item;
+    }
+  }
+  duplicateCountV07s = duplicates;
+  return clean;
+}
+effectiveEvents = function() {
+  const existing = originalEffectiveV07s();
+  const rexam = rexamRowsV07s.map(x => {
+    const edited = localFixes[x.id];
+    return edited ? {...x, ...edited, wasEdited:true} : x;
+  });
+  return dedupeV07s([...existing, ...rexam]);
+};
+
+const fetchStatusBoxV07s = document.createElement('details');
+fetchStatusBoxV07s.id = 'fetchStatusV07s';
+fetchStatusBoxV07s.innerHTML = '<summary>催事データの取得状況</summary><div class="fetch-status-text" aria-live="polite">確認中</div>';
+const eventHostV07s = document.getElementById('autoEventList');
+if (eventHostV07s) eventHostV07s.parentNode.insertBefore(fetchStatusBoxV07s, eventHostV07s);
+const styleV07s = document.createElement('style');
+styleV07s.textContent = '#fetchStatusV07s{font-size:12px;margin:6px 0 8px;color:var(--sub)}#fetchStatusV07s summary{cursor:pointer;font-weight:750;color:var(--ink);padding:5px 0}#fetchStatusV07s .fetch-status-text{line-height:1.7;white-space:pre-line;overflow-wrap:anywhere;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--card2)}';
+document.head.appendChild(styleV07s);
+function monthWindowV07s() {
+  const parts = new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Tokyo',year:'numeric',month:'numeric'}).formatToParts(new Date());
+  const year = Number(parts.find(p => p.type === 'year').value);
+  const month = Number(parts.find(p => p.type === 'month').value);
+  return [0,1,2].map(offset => {
+    const d = new Date(Date.UTC(year,month-1+offset,1));
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0');
+  });
+}
+function renderStatusV07s() {
+  if (!eventHostV07s) return;
+  const el = fetchStatusBoxV07s.querySelector('.fetch-status-text');
+  const wanted = monthWindowV07s();
+  const found = new Set(gymMonths || []);
+  const monthText = wanted.map(m => m + ': ' + (found.has(m) ? '取得済み' : '未収録（公式未公開・取得失敗等）')).join('／');
+  const gymText = ({ok:'取得成功',partial:'一部失敗',pending:'未実行',error:'取得失敗'})[gymStatus] || gymStatus;
+  const sourceText = (autoSourceStatuses || []).map(a => a.venue + ': ' + ({ok:'成功',stale:'前回データ',paused:'取得停止',error:'失敗'})[a.status]).join('／');
+  el.textContent = '体育館：' + gymText + '・' + gymEvents.length + '件\n' +
+    '対象月：' + monthText + '\n' +
+    'レクザムホール：' + rexamStatusV07s + '・' + rexamRowsV07s.length + '件' +
+    (rexamUpdatedV07s ? '（データ日時：' + rexamUpdatedV07s + '）' : '') + '\n' +
+    '会場公式：' + (sourceText || '確認中') + '\n' +
+    '重複として統合：' + duplicateCountV07s + '件' +
+    ((gymWarnings || []).length ? '\n体育館の取得警告：' + gymWarnings.join('／') : '');
+}
+if (eventHostV07s) {
+  new MutationObserver(renderStatusV07s).observe(eventHostV07s,{childList:true});
+}
+async function refreshRexamV07s() {
+  rexamStatusV07s = '取得中';
+  renderStatusV07s();
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(),12000);
+    let response;
+    try {response = await fetch('./data/rexam_events.json?t='+Date.now(),{cache:'no-store',signal:ctl.signal});}
+    finally {clearTimeout(timer);}
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    if (data.schema !== 1 || !Array.isArray(data.events) || data.events.length > 300) throw new Error('データ形式が不正');
+    const rows = data.events.filter(x => x && /^rexam-[0-9a-f]{16}$/.test(x.id) &&
+      /^20\d{2}-\d{2}-\d{2}$/.test(x.date) &&
+      typeof x.title === 'string' && x.title.length > 0 && x.title.length <= 120 &&
+      x.venue === 'レクザムホール' &&
+      typeof x.url === 'string' && x.url.startsWith('https://kenminhall.com/visitors/event_detail'));
+    if (rows.length !== data.events.length) throw new Error('未確認データが混入');
+    rexamRowsV07s = rows.map(x => ({...x, sourceType:'rexam'}));
+    rexamStatusV07s = ({ok:'成功',partial:'一部取得',stale:'前回データ',error:'取得失敗'})[data.status] || '確認中';
+    rexamUpdatedV07s = data.updatedAt || '';
+    rebuildEvents();
+  } catch (error) {
+    rexamStatusV07s = '取得失敗（既存表示は維持）';
+    console.warn('レクザムホール取得',error);
+  }
+  renderStatusV07s();
+}
+// 既存の催事再読込に、レクザムの再取得も追加する。
+const reloadAutoV07s = document.getElementById('refreshAuto');
+if (reloadAutoV07s) reloadAutoV07s.addEventListener('click',refreshRexamV07s);
+refreshRexamV07s();
+renderStatusV07s();
+// 表示上のバージョンだけ更新。元のテーマキーやキャッシュ名は変更しない。
+for (const el of [document.querySelector('title'), document.querySelector('.headright .pill')]) {
+  if (el) el.textContent = el.textContent.replace(/v0\.7[mnopqr]/g,'v0.7s');
+}
+const footerV07s = document.querySelector('footer.foot');
+if (footerV07s && footerV07s.firstChild && footerV07s.firstChild.nodeType === 3) {
+  footerV07s.firstChild.nodeValue = footerV07s.firstChild.nodeValue.replace(/v0\.7[mnopqr]/g,'v0.7s');
+}
+
 renderSources();renderAll();refreshWeather();refreshNowcast();refreshAutoEvents();refreshConventions();refreshGymEvents();if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW',err));
 })();
 </script>
