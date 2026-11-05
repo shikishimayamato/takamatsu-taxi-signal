@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#081623"><meta name="description" content="高松市のタクシー乗務員向け、天候と公式催事の開場・開演・終演時刻を整理するPWA（試作版）。">
   <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="signal-192.png"><link rel="apple-touch-icon" href="signal-192.png">
-  <title>高松タクシー・シグナル v0.7l</title>
+  <title>高松タクシー・シグナル v0.7m</title>
 <script>
 (function(){
   var stored=null;
@@ -111,7 +111,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 
  .venue-area{font-size:11px;font-weight:650;color:#9fc4d0}
 
-/* v0.7l 催事画面の視認性向上 */
+/* v0.7m 催事画面の視認性向上 */
 #view-events #venueCounts,#view-events .tier-explainer,#view-events #autoMeta{display:none}
 .signal-event .event-day-strong{font-size:15px;font-weight:900;color:#f3faff;font-variant-numeric:tabular-nums;white-space:nowrap}
 .signal-event .event-lead{margin-bottom:8px}
@@ -120,7 +120,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 .signal-event .event-title-strong{margin:0 0 7px;font-size:16px}
 @media(max-width:580px){.signal-event .event-day-strong{font-size:14px}.signal-event .event-time-band .time-strong,.signal-event .event-time-band .time-door{font-size:13px}.signal-event .event-title-strong{font-size:15px}}
 
-/* v0.7l 新規登録を集約 */
+/* v0.7m 新規登録を集約 */
 .quick-manual{margin-top:18px;margin-bottom:18px;padding:16px 18px}
 .quick-manual-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .quick-manual-heading h2{margin:0;font-size:20px}
@@ -132,7 +132,7 @@ body{background:radial-gradient(ellipse at 80% -20%,#143b56 0,transparent 43%),l
 .editor-more{padding:9px 0;margin:7px 0;border-top:1px solid var(--border)}
 .editor-more>summary{cursor:pointer;color:#b6dce8;font-size:13px;margin-bottom:9px}
 @media(max-width:580px){.quick-manual-heading button{width:100%}}
-/* v0.7l 昼間・夜間モード切替（このブロックは既存CSSの末尾に追加） */
+/* v0.7m 昼間・夜間モード切替（このブロックは既存CSSの末尾に追加） */
 .theme-toggle{border:1px solid #7096a7;border-radius:10px;min-height:36px;padding:6px 10px;background:#274a5d;color:#f4ffff;font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer;line-height:1.15}
 .theme-toggle:focus-visible{outline:3px solid #f6c75f;outline-offset:2px}
 @media(max-width:580px){.topinner{gap:7px}.headright{gap:7px}.theme-toggle{font-size:12px;min-height:33px;padding:5px 8px}.brand b{font-size:13px}}
@@ -212,10 +212,155 @@ html[data-theme="day"] .rain-details-body small{color:#536979}
 html[data-theme="day"] .quick-manual>p{color:#4b6170}
 html[data-theme="day"] .offline{background:#fff0e4;border-color:#cfab82;color:#724521}
 
+
+/* v0.7m 昼間視認性・縦幅の一括改善 */
+
+/* 全体の余白を圧縮 */
+.sectionhead{margin:15px 0 8px}
+.sectionhead h2{font-size:19px;line-height:1.35}
+.tabs{margin:6px 0 10px;gap:6px}
+.sourcegrid{gap:7px}
+.source{min-height:48px;padding:9px 12px;gap:7px;border-radius:10px;line-height:1.35}
+.source .name{font-size:13px}
+.source:before{content:"↗";font-size:16px;font-weight:900;color:#80dce5}
+.focus-panel{padding:15px}
+.focus-switch,.rangebar{margin:9px 0}
+.pulse-stats{margin:9px 0}
+.pulse-stats>div{padding:9px 11px}
+.signal-event{padding:12px 13px;margin-bottom:8px;border-radius:11px}
+.signal-event .event-lead{margin-bottom:5px;gap:6px}
+.signal-event .event-title-strong{font-size:15px;line-height:1.4;margin:0 0 5px}
+.signal-event .event-time-band{margin:0 0 7px;gap:6px}
+.signal-event .event-time-band .time-strong,
+.signal-event .event-time-band .time-door{padding:5px 8px;font-size:13px}
+.signal-event .eventinfo{margin:5px 0 0;line-height:1.5}
+.signal-event .event-actions{margin-top:7px;gap:6px}
+.size-mark{padding:4px 8px}
+.quick-manual{margin:10px 0;padding:12px}
+.quick-manual-heading{gap:8px}
+.quick-manual-heading h2{font-size:18px}
+.quick-manual-heading button{padding:8px 12px;min-height:40px}
+.convention-panel{margin-top:12px;padding:12px}
+.convention-row{margin-top:8px;padding:11px}
+.foot{padding:15px 0 25px}
+
+/* 昼間モードのマーク・文字・輪郭を強調 */
+html[data-theme="day"] .wx-symbol{
+ color:#125575;font-weight:900;
+}
+html[data-theme="day"] .source:before{
+ color:#125a79;
+}
+html[data-theme="day"] .source .name{
+ color:#173a50;font-weight:850;
+}
+html[data-theme="day"] .source,
+html[data-theme="day"] .card,
+html[data-theme="day"] .convention-panel,
+html[data-theme="day"] .convention-row{
+ border-color:#91adbf;
+}
+html[data-theme="day"] .signal-event{
+ border-color:#93afc0;
+ border-left-width:5px;
+ box-shadow:0 2px 6px #17374d18;
+}
+html[data-theme="day"] .venue-mark:before{
+ color:#125b77;font-weight:900;
+}
+html[data-theme="day"] .venue-mark[data-venue="arena"]:before{
+ color:#31558e;
+}
+html[data-theme="day"] .tab,
+html[data-theme="day"] .focus-pill,
+html[data-theme="day"] .rangebutton{
+ background:#e5eff4;
+ border-color:#829eaf;
+ color:#173c50;
+ font-weight:850;
+}
+html[data-theme="day"] .tab[aria-selected="true"],
+html[data-theme="day"] .focus-pill[aria-pressed="true"],
+html[data-theme="day"] .rangebutton[aria-pressed="true"]{
+ background:#105a73;
+ border-color:#105a73;
+ color:#fff;
+}
+html[data-theme="day"] .theme-toggle{
+ background:#daeaf1;
+ border-color:#7396a9;
+ color:#113f58;
+}
+html[data-theme="day"] .btn.secondary,
+html[data-theme="day"] .btn.ghost{
+ border-color:#87a8bb;
+ color:#16445a;
+}
+html[data-theme="day"] .size-mark.unknown{
+ color:#25495e;border-color:#8eaabb;background:#e3edf4;
+}
+html[data-theme="day"] .size-mark.large{
+ color:#85261d;border-color:#c4776e;background:#fbe3df;
+}
+html[data-theme="day"] .size-mark.medium{
+ color:#704406;border-color:#caa356;background:#fff0c7;
+}
+html[data-theme="day"] .size-mark.small{
+ color:#145860;border-color:#6caaa7;background:#d7f1ef;
+}
+html[data-theme="day"] .rain-details summary,
+html[data-theme="day"] .notice-compact summary{
+ color:#105976;font-weight:850;
+}
+html[data-theme="day"] .weather-strip{
+ border-color:#98b4c3;
+}
+
+/* スマートフォンの縦幅を重点的に圧縮 */
+@media(max-width:600px){
+ .topinner{min-height:49px}
+ .tabs{margin:5px 0 8px;padding-bottom:2px}
+ .tab{min-height:38px;padding:7px 10px}
+ .weather-strip{margin-top:5px;padding:6px 8px;gap:5px}
+ .notice-compact{margin:5px 0;padding:5px 7px}
+ .sectionhead{margin:12px 0 6px}
+ .sectionhead h2{font-size:17px}
+ .focus-panel{padding:10px 11px;border-radius:14px}
+ .focus-header h2{font-size:18px}
+ .focus-switch{margin:7px 0;gap:5px}
+ .focus-pill{min-height:36px;padding:6px 10px}
+ .pulse-stats{margin:6px 0 8px;gap:6px}
+ .pulse-stats>div{padding:6px 8px}
+ .pulse-stats b{font-size:18px;line-height:1.3}
+ .signal-event{padding:10px 11px;margin-bottom:7px}
+ .signal-event .event-lead{margin-bottom:4px}
+ .signal-event .event-title-strong{font-size:14px;margin:0 0 4px}
+ .signal-event .event-time-band{margin-bottom:6px;gap:5px}
+ .signal-event .event-time-band .time-strong,
+ .signal-event .event-time-band .time-door{
+  font-size:12px;padding:4px 7px;
+ }
+ .sourcegrid{gap:6px}
+ .source{min-height:46px;padding:9px 11px}
+ .quick-manual{padding:11px 12px;margin:10px 0}
+ .quick-manual-heading{flex-wrap:nowrap;align-items:center}
+ .quick-manual-heading h2{font-size:17px}
+ .quick-manual-heading button{
+  width:auto;min-height:40px;padding:7px 12px;
+ }
+ #view-events .rangebar{margin:0 0 8px;gap:5px}
+ #view-events .rangebutton{min-height:38px;padding:6px 10px}
+ #view-events .venuefilters{gap:6px 8px;margin-bottom:6px}
+ #view-events .venuefilters select{min-height:38px}
+ #view-events>.card{padding:11px 12px;margin-bottom:10px!important}
+ #autoEventList{margin-top:8px!important}
+ .convention-panel{margin-top:10px;padding:11px 12px}
+ .convention-row{margin-top:7px;padding:10px}
+}
 </style>
 </head>
 <body>
-<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7l</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
+<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7m</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
     <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub"></small></div></div>
@@ -246,7 +391,7 @@ html[data-theme="day"] .offline{background:#fff0e4;border-color:#cfab82;color:#7
  <p class="smallprint">大会が複数会場にまたがる場合、掲載参加人数を各会場に割り振りません。公式掲載のない宴会は本人の未確認メモとして区別します。</p></section>
  <div class="sectionhead" id="legacyMemoHead"><div><h2>交通・運行情報をメモ</h2><p>現場で確認した時刻や交通障害を、ご自身の端末にメモできます。</p></div></div><div class="split" id="legacyMemoSplit"><div class="card"><form id="memoForm"><div class="formgrid"><div class="field"><label for="evType">情報の種類</label><select id="evType"><option value="event">催事・終演</option><option value="rail">鉄道の運休・遅延</option><option value="flight">航空便の到着・欠航</option><option value="port">船舶・フェリー</option><option value="road">交通障害</option><option value="other">その他</option></select></div><div class="field"><label for="evZone">対象地区</label><select id="evZone"></select></div></div><div class="field"><label for="evTitle">内容の名前</label><input id="evTitle" required maxlength="72" placeholder="例：アリーナでコンサート（終演時刻を確認）"></div><div class="formgrid"><div class="field"><label for="evAt">発生・終了予定日時</label><input id="evAt" type="datetime-local" required></div><div class="field"><label for="evSize">想定規模（任意）</label><select id="evSize"><option value="small">小・不明</option><option value="medium">中</option><option value="large">大</option></select></div></div><div class="field"><label for="evLink">情報源URL（任意）</label><input id="evLink" type="url" placeholder="https://..."></div><div class="field"><label for="evNote">備考（任意）</label><textarea id="evNote" maxlength="300" placeholder="終了時刻は未確定、交通規制あり、など"></textarea></div><button type="submit" class="btn">＋ この端末に登録する</button><p class="smallprint">各記録は入力者のメモです。公式に確認した情報と混同しないでください。保存はこのブラウザーのみに行われ、端末間同期・自動監視はありません。</p></form></div><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:9px"><h3 style="margin:0">登録済みメモ</h3><div><button class="btn ghost sm" id="exportEvents">書き出し</button><button class="btn ghost sm" id="importEvents">読み込み</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div><div id="eventList" style="margin-top:15px"></div></div></div></section>
   <section class="view" id="view-sources" role="tabpanel" hidden><div class="sectionhead"><div><h2>公式情報をすばやく開く</h2><p>リンク先の各公式サイトで必ず最新時刻と条件を確認してください。</p></div></div><div id="sourceAll" class="sourcegrid"></div><div class="card" style="margin-top:15px"><h3 style="margin-top:0">自動取得の範囲と限界</h3><p class="tagline">この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。あなぶきアリーナ香川とサンポートホール高松の公式催事日程に加え、高松市スポーツ協会が公開する13施設の月間PDFから、当月と翌月の催事をGitHub Actionsで定期収集します。スポーツ施設の開催時刻・参加人数はPDFにない限り空欄のままとします。掲載時刻を事実として表示し、乗車需要の確定予測には使用しません。サンメッセ香川はSSL証明書の調査中につき自動取得を停止しています。公式掲載の開催終了時刻は、実際の退場時刻・タクシー需要を意味しません。サイトの構造変更やアクセス制限で取得できない場合があります。鉄道運行、航空便、船舶、道路情報は依然として公式サイトへのリンクと手動メモです。自動で障害を検出したという表示はしません。</p><p class="tagline">気象庁の高解像度ナウキャストは公式サイトで直接確認します。このアプリの1時間単位の気象予報を、5分刻みの雨雲接近予測として扱わないでください。</p><p class="tagline">Open-Meteoの無料APIは非商用利用向けです。営業用サービス、商用配信、課金アプリとして公開する前に、商用ライセンスや別の正規情報源を確認してください。</p><p class="smallprint"><a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/en/terms">Open-Meteo利用規約</a>／気象データ：<a target="_blank" rel="noopener noreferrer" href="https://open-meteo.com/">Open-Meteo</a>（CC BY 4.0、予報に基づく表示をアプリ側で加工）</p></div></section>
-  <footer class="foot">高松タクシー・シグナル v0.7l（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
+  <footer class="foot">高松タクシー・シグナル v0.7m（個人検証用試作）｜天気データ <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a><br>データ更新や災害時の正確性を保証しません。運転中のスマートフォン操作はせず、規制された場所への客待ちを行わないでください。</footer>
 </main>
 <dialog id="editorDlg" aria-label="催事情報を登録・補正する"><form id="editForm">
 <h2 id="editHeading">新規登録</h2><p id="editSource" class="convention-meta"></p>
