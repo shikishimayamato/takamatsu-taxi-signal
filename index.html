@@ -357,6 +357,45 @@ html[data-theme="day"] .weather-strip{
  .convention-panel{margin-top:10px;padding:11px 12px}
  .convention-row{margin-top:7px;padding:10px}
 }
+
+/* v0.7m スマホ横スクロール修正 */
+@media (max-width: 640px) {
+  html, body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  #view-events > .card .venuefilters {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+    align-items: center;
+  }
+
+  #view-events > .card .venuefilters select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    text-overflow: ellipsis;
+  }
+
+  #view-events > .card .venuefilters #venueCounts {
+    grid-column: 1 / -1;
+  }
+
+  #view-events .signal-event,
+  #view-events .event-title-strong,
+  #view-events .venue-mark {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+  
 </style>
 </head>
 <body>
