@@ -62,6 +62,8 @@ def discover_months(html: str, now: datetime) -> list[tuple[int, int, str]]:
     wanted = {(now.year, now.month)}
     next_month = now.replace(day=28) + timedelta(days=5)
     wanted.add((next_month.year, next_month.month))
+    second_next_month = next_month.replace(day=28) + timedelta(days=5)
+    wanted.add((second_next_month.year, second_next_month.month))  
     result = set()
     for a in BeautifulSoup(html, 'html.parser').select('a[href]'):
         label = tidy(a.get_text(' ', strip=True))
