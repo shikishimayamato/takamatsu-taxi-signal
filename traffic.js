@@ -25,7 +25,7 @@
     busy=true;lastAttempt=Date.now();button.disabled=true;
     clearTimeout(expiry);details.hidden=true;list.replaceChildren();status.textContent='交通情報を確認中…';
     try{
-      const response=await fetch('https://takamatsu-traffic-proxy.shikishimanippon5.workers.dev/api/v1/traffic',{
+      const response=await fetch('https://takamatsu-traffic-proxy.shikishimanipponn5.workers.dev/api/v1/traffic',{
         cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(20000)
       });
       if(!response.ok)throw new Error();
