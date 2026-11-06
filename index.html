@@ -505,8 +505,8 @@ function validateMemo(x){return x&&typeof x.id==='string'&&typeof x.title==='str
 function saveMemos(){try{localStorage.setItem(KEY,JSON.stringify(memos));return true}catch{alert('保存できませんでした。ブラウザーの容量・プライベートモードをご確認ください。');return false}}
 function closestIndex(times,target){if(!times||!times.length)return -1;let best=-1,dist=Infinity;for(let i=0;i<times.length;i++){let time=Date.parse(times[i]+'+09:00');if(!Number.isFinite(time))continue;let dd=Math.abs(time-target);if(dd<dist){dist=dd;best=i}}return best}
 function getWx(z,time){if(!weather?.hourly)return null;const w=weather;let i=closestIndex(w.hourly.time,time);if(i<0||Math.abs(Date.parse(w.hourly.time[i]+'+09:00')-time)>60*60*1000)return null;return{temp:w.hourly.temperature_2m?.[i],precip:w.hourly.precipitation?.[i],prob:w.hourly.precipitation_probability?.[i]}}
-function formatW(wx){if(!wx)return '天気データ未取得';return `予報 ${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${wx.precip==null?'--':wx.precip}mm / 確率 ${wx.prob==null?'--':wx.prob}%`}
-function renderStats(){const wx=getWx(ZONES[0],Date.now());$('wxMain').textContent=wx?`${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${wx.prob==null?'--':wx.prob}%`:'未取得';$('wxSub').textContent=wx?(lastFetched?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}).format(new Date(lastFetched))+'取得':''):'気象データ未取得';}
+function formatW(wx){if(!wx)return '天気データ未取得';return `予報 ${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${wx.precip==null?'--':wx.precip}mm / 確率 ${probability10(wx.prob)}%`}
+function renderStats(){const wx=getWx(ZONES[0],Date.now());$('wxMain').textContent=wx?`${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${probability10(wx.prob)}%`:'未取得';$('wxSub').textContent=wx?(lastFetched?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}).format(new Date(lastFetched))+'取得':''):'気象データ未取得';}
 function renderEvents(){let list=[...memos].sort((a,b)=>new Date(a.at)-new Date(b.at));$('eventList').innerHTML=list.length?list.map(m=>`<div class="event"><div class="eventhead"><div><b>${esc(m.title)}</b><div class="eventtime">${esc(fmtDate(m.at))}</div></div><span class="chip">手動入力</span></div><div class="eventinfo">${esc(ZONES.find(z=>z.id===m.zone)?.name)} ／ ${esc({event:'催事',rail:'鉄道',flight:'空港',port:'船舶',road:'道路',other:'その他'}[m.type])} ／ 規模：${esc({small:'小・不明',medium:'中',large:'大'}[m.size])}</div>${m.note?`<div class="eventinfo">${esc(m.note)}</div>`:''}<div class="event-actions">${/^https:\/\//.test(m.link||'')?`<a class="minilink" target="_blank" rel="noopener noreferrer" href="${esc(m.link)}">入力された情報源 ↗</a>`:''}<button class="btn ghost sm" data-edit-memo="${esc(m.id)}">編集</button><button class="btn ghost sm" data-delete="${esc(m.id)}">削除</button></div></div>`).join(''):'<div class="empty">まだ登録がありません。催事の終演時刻や運休情報を手動で追加できます。</div>'}
 function validateAutoEvent(a){
  if(!a||typeof a.id!=='string'||typeof a.title!=='string'||a.title.length>120||!/^20\d{2}-\d{2}-\d{2}$/.test(a.date)||Number.isNaN(Date.parse(a.date+'T00:00:00+09:00')))return false;
@@ -1746,5 +1746,173 @@ html.v07n[data-theme="day"] .wx-link:visited{
   }
 }
 </style>
+  <!-- 高松周辺の交通情報 -->
+<style>
+#traffic-panel{
+  margin:6px 0;padding:8px 10px;
+  border:1px solid #b18b45;border-radius:10px;
+  background:#243847;color:#f5f7fa;
+  font-size:12px;line-height:1.5
+}
+#traffic-panel summary{
+  cursor:pointer;min-height:28px;
+  display:flex;align-items:center;
+  justify-content:space-between;gap:8px;flex-wrap:wrap
+}
+#traffic-panel summary strong{color:#ffe0a3}
+#traffic-panel a{color:#b9f3ff}
+#traffic-panel .traffic-row{
+  padding:10px 0;border-top:1px solid #78909c
+}
+#traffic-panel small{display:block;margin:5px 0}
+#traffic-panel button{
+  min-height:44px;padding:7px 10px;
+  background:#fff;color:#173246;
+  border:1px solid #78909c;border-radius:7px;
+  cursor:pointer;font-size:12px
+}
+html[data-theme="day"] #traffic-panel{
+  background:#fff8e8;color:#173246
+}
+html[data-theme="day"] #traffic-panel summary strong{color:#704313}
+html[data-theme="day"] #traffic-panel a{color:#125b78}
+</style>
+
+<script>
+function probability10(value){
+  return typeof value==='number' &&
+    Number.isFinite(value) && value>=0 && value<=100
+    ? Math.round(value/10)*10 : '--';
+}
+
+(function(){
+  'use strict';
+  const weatherBar=document.querySelector('.weather-strip');
+  if(!weatherBar || document.getElementById('traffic-panel')) return;
+
+  const sources=[
+    [
+      '香川県ホームページ：通行規制',
+      'https://www.pref.kagawa.lg.jp/douro/tuukoukisei/tuukoukisei.html',
+      '高松周辺の道路・対象車種・規制時間を確認してください。'
+    ],
+    [
+      '高松市：道路の通行止め',
+      'https://www.city.takamatsu.kagawa.jp/jigyosha/toshikeikaku/doro/tsukodome.html',
+      '市道の災害や長期工事などの情報です。'
+    ],
+    [
+      '国土交通省：道路情報',
+      'https://www.road-info-prvs.mlit.go.jp/roadinfo/sp/spTop_00_0.html',
+      '四国を選択してください。公式側は5～10分間隔更新です。'
+    ],
+    [
+      '日本道路交通情報センター（JARTIC）',
+      'https://www.jartic.or.jp/',
+      '一般道路の香川県を選び、事故・規制を確認してください。'
+    ]
+  ];
+
+  const panel=document.createElement('details');
+  panel.id='traffic-panel';
+  panel.innerHTML=
+    '<summary><strong id="traffic-state" role="status"></strong>'+
+    '<span>交通の詳細 ▾</span></summary>'+
+    '<p>高松周辺の一般道路を確認するための公式リンクです。'+
+    'このアプリは事故・通行止めを自動取得していません。</p>'+
+    '<p>125ccは高速道路・自動車専用道路を利用できません。'+
+    '一般道でも標識と車種別規制を確認してください。</p>'+
+    '<div id="traffic-links"></div>'+
+    '<p>閲覧記録は利用者の自己申告です。道路の安全や事故の解消を示すものではありません。</p>'+
+    '<p>降水確率は元の予報値を四捨五入し、10％刻みで表示します。</p>'+
+    '<button type="button" id="traffic-clear">閲覧記録を消す</button>';
+
+  weatherBar.insertAdjacentElement('afterend',panel);
+
+  const key='taxi-traffic-viewed-v1';
+  let records={};
+  try{
+    const saved=JSON.parse(sessionStorage.getItem(key)||'{}');
+    if(saved && typeof saved==='object' && !Array.isArray(saved)){
+      records=saved;
+    }
+  }catch(e){}
+
+  const states=[];
+
+  function save(){
+    try{
+      sessionStorage.setItem(key,JSON.stringify(records));
+    }catch(e){}
+  }
+
+  sources.forEach(function(source,i){
+    const row=document.createElement('div');
+    row.className='traffic-row';
+
+    const link=document.createElement('a');
+    link.textContent=source[0]+' ↗';
+    link.href=source[1];
+    link.target='_blank';
+    link.rel='noopener noreferrer';
+
+    const note=document.createElement('small');
+    note.textContent=source[2];
+
+    const state=document.createElement('small');
+
+    const button=document.createElement('button');
+    button.type='button';
+    button.textContent='公式を閲覧したので記録';
+    button.addEventListener('click',function(){
+      records[i]=Date.now();
+      save();
+      render();
+    });
+
+    row.append(link,note,state,button);
+    panel.querySelector('#traffic-links').appendChild(row);
+    states.push(state);
+  });
+
+  function render(){
+    panel.querySelector('#traffic-state').textContent=
+      navigator.onLine
+      ? '道路：要確認／事故：未取得'
+      : 'オフライン／道路・事故：未確認';
+
+    states.forEach(function(state,i){
+      const t=records[i];
+      const age=Date.now()-t;
+
+      if(typeof t!=='number' || !Number.isFinite(t) || age<0){
+        state.textContent='閲覧記録なし';
+        return;
+      }
+
+      const time=new Intl.DateTimeFormat('ja-JP',{
+        timeZone:'Asia/Tokyo',
+        month:'numeric',day:'numeric',
+        hour:'2-digit',minute:'2-digit'
+      }).format(t);
+
+      state.textContent='自己申告の閲覧：'+time+
+        (age>=30*60000 ? '／30分経過・再確認' : '');
+    });
+  }
+
+  panel.querySelector('#traffic-clear').addEventListener('click',function(){
+    records={};
+    save();
+    render();
+  });
+
+  window.addEventListener('online',render);
+  window.addEventListener('offline',render);
+  document.addEventListener('visibilitychange',render);
+  setInterval(render,60000);
+  render();
+})();
+</script>
   
 </body></html>
