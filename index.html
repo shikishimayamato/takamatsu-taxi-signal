@@ -1915,6 +1915,171 @@ function probability10(value){
   #view-events .rangebar {grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 </style>
+<!-- v0.7w: スマホ上部だけ省スペース化（注意・天気・X） -->
+<style>
+@media (max-width:640px) {
+  /* 注意書き：横一列。展開時だけ説明を下段に表示 */
+  .notice-compact {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    column-gap:8px;
+    row-gap:2px;
+    padding:6px 9px!important;
+    margin:5px 0!important;
+  }
+  .notice-compact > strong {
+    font-size:16px!important;
+    line-height:1.3;
+    min-width:0;
+  }
+  .notice-compact > details {
+    justify-self:end;
+    min-width:0;
+    margin:0;
+  }
+  .notice-compact > details > summary {
+    font-size:15px!important;
+    line-height:1.4;
+    padding:6px 0;
+    white-space:nowrap;
+  }
+  .notice-compact > details[open] {
+    grid-column:1/-1;
+    grid-row:2;
+    justify-self:stretch;
+  }
+  .notice-compact > details[open] > p {
+    font-size:15px;
+    margin:6px 0 0;
+  }
+
+  /* 天気：横一列に詰める（気温・強雨・更新） */
+  html.v07n .weather-strip {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) max-content max-content!important;
+    grid-template-areas:"weather rain actions"!important;
+    align-items:center!important;
+    column-gap:7px!important;
+    row-gap:0!important;
+    padding:6px 8px!important;
+    margin:5px 0!important;
+    min-height:0;
+  }
+  html.v07n .wx-link {width:auto!important;min-width:0}
+  html.v07n .wx-primary {gap:4px;min-width:0}
+  html.v07n .wx-primary-text strong {
+    font-size:16px!important;
+    line-height:1.3;
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+  }
+  html.v07n .rain-status {
+    width:auto!important;
+    min-width:0;
+    gap:3px;
+    flex-wrap:nowrap;
+    justify-content:flex-end;
+  }
+  html.v07n .rain-label {
+    font-size:14px!important;
+    padding:5px 4px;
+    max-width:none;
+    white-space:normal;
+    line-height:1.25;
+  }
+  html.v07n .rain-details summary {font-size:15px!important}
+  html.v07n .wx-buttons {width:auto!important;min-width:0;justify-content:flex-end}
+  html.v07n .wx-buttons #refresh {
+    width:55px!important;
+    min-width:55px!important;
+    height:44px!important;
+    min-height:44px!important;
+  }
+
+  /* X：見出しと「戻り方」を同じ行、リンク2つを横並びに */
+  #traffic-short {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    column-gap:8px;
+    row-gap:6px;
+    margin:5px 0!important;
+    padding:7px 10px!important;
+  }
+  #traffic-short > strong {grid-column:1;grid-row:1;font-size:17px;line-height:1.3}
+  #traffic-short > details {
+    grid-column:2;
+    grid-row:1;
+    justify-self:end;
+    margin:0!important;
+  }
+  #traffic-short > details > summary {
+    font-size:15px!important;
+    line-height:1.3;
+    white-space:nowrap;
+    padding:5px 0;
+  }
+  #traffic-short > details[open] {
+    grid-column:1/-1;
+    grid-row:3;
+    justify-self:stretch;
+  }
+  #traffic-short > details[open] p {font-size:15px;line-height:1.5}
+  #traffic-short .traffic-buttons {
+    grid-column:1/-1;
+    grid-row:2;
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;
+    margin-top:0!important;
+  }
+  #traffic-short .traffic-buttons a {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    font-size:15px!important;
+    line-height:1.3;
+    padding:6px 4px;
+    text-align:center;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+}
+/* 画面幅が特に狭い端末では天気だけ2段に戻す */
+@media (max-width:355px) {
+  html.v07n .weather-strip {
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-areas:"weather rain" "actions actions"!important;
+    row-gap:3px!important;
+  }
+}
+</style>
+<script>
+/* 見出しを短縮。注意事項の本文・各リンク・情報取得機能は変更しない */
+(function(){
+  const warning=document.querySelector('.notice-compact > strong');
+  if(warning && warning.textContent.trim()==='運転中は操作しないでください。') {
+    warning.textContent='運転中は操作禁止';
+  }
+  const warningSummary=document.querySelector('.notice-compact > details > summary');
+  if(warningSummary && warningSummary.textContent.trim()==='利用上の注意') {
+    warningSummary.textContent='注意事項';
+  }
+  const trafficHeading=document.querySelector('#traffic-short > strong');
+  if(trafficHeading && trafficHeading.textContent.trim()==='交通情報をXで確認') {
+    trafficHeading.textContent='Xで交通確認';
+  }
+  const trafficSummary=document.querySelector('#traffic-short > details > summary');
+  if(trafficSummary && trafficSummary.textContent.trim()==='Xから戻れないとき') {
+    trafficSummary.textContent='戻り方';
+  }
+})();
+</script>
 </body></html>
 
 
