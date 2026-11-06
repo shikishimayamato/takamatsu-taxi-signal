@@ -397,9 +397,20 @@ html[data-theme="day"] .weather-strip{
 }
   
 </style>
+<style>
+/* Crisp vector mark with separate daylight and night palettes. */
+.brand .brandicon{background:transparent;box-shadow:none;overflow:visible;border:0}
+.signal-mark{display:block;width:100%;height:100%;--mark-bg:#173b4b;--mark-edge:#648e9e;--mark-pulse:#8ae8e6;--mark-radio:#ffcf79;--mark-grid:#76a9b8}
+html[data-theme="day"] .signal-mark{--mark-bg:#eaf6f8;--mark-edge:#6b9ca9;--mark-pulse:#08758b;--mark-radio:#986000;--mark-grid:#6595a3}
+.signal-bg{fill:var(--mark-bg);stroke:var(--mark-edge);stroke-width:1.8}
+.signal-pulse{fill:none;stroke:var(--mark-pulse);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}
+.signal-radio{fill:none;stroke:var(--mark-radio);stroke-width:2.5;stroke-linecap:round}
+.signal-grid{fill:none;stroke:var(--mark-grid);stroke-width:1.6;stroke-linecap:round}
+.signal-dot{fill:var(--mark-radio)}
+</style>
 </head>
 <body>
-<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7m</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
+<header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><svg class="signal-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect class="signal-bg" x="2" y="2" width="60" height="60" rx="17"/><path class="signal-grid" d="M12 18h14M12 46h16M38 46h12"/><path class="signal-pulse" d="M11 36h10l6-13 7 23 7-15h12"/><path class="signal-radio" d="M39 13a15 15 0 0 1 13 13M40 20a8 8 0 0 1 6 6"/><circle class="signal-dot" cx="40" cy="27" r="2"/></svg></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7m</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
   <div class="notice notice-compact"><strong>運転中は操作しないでください。</strong><details><summary>利用上の注意</summary><p>催事の規模は参考分類です。乗車需要の実測・予測や配車指示ではありません。実際の終了・退場時刻を公式情報で確認し、駐停車規制・客待ち規制・営業区域を守ってください。強雨の状態は気象庁レーダーと短時間予測に基づく独自の参考判定です。検出されない場合でも安全を保証しません。</p></details></div>
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
@@ -1842,6 +1853,7 @@ function probability10(value){
   
 <script src="traffic.js"></script>
 </body></html>
+
 
 
 
