@@ -1,0 +1,70 @@
+name: TomTom交通情報 接続テスト
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  traffic-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 高松市周辺の交通情報を1回だけ照会
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+        run: |
+          python - <<'PY'
+          import collections
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          key = os.environ.get("TOMTOM_API_KEY", "").strip()
+          if not key:
+              sys.exit("失敗: TOMTOM_API_KEY が設定されていません。GitHub Secretsを確認してください。")
+
+          base = "https://api.tomtom.com/maps/orbis/traffic/incidents/details"
+          params = {
+              "apiVersion": "2",
+              "bbox": "133.95,34.24,134.20,34.48",
+              "timeValidity": "present",
+          }
+          url = base + "?" + urllib.parse.urlencode(params)
+          req = urllib.request.Request(url, headers={
+              "TomTom-Api-Key": key,
+              "TomTom-Api-Version": "2",
+              "Attributes": "incidents(type,geometry(type,coordinates),properties(iconCategory))",
+              "Accept": "application/json",
+              "Accept-Language": "ja-JP",
+              "User-Agent": "TakamatsuTaxiSignal/traffic-probe",
+          })
+          try:
+              with urllib.request.urlopen(req, timeout=25) as response:
+                  status = response.status
+                  data = json.load(response)
+          except urllib.error.HTTPError as exc:
+              sys.exit(f"失敗: TomTom HTTP {exc.code}（401/403: キー・権限、429: 利用制限、その他: API仕様等を確認）")
+          except urllib.error.URLError:
+              sys.exit("失敗: TomTomへの通信接続ができませんでした（タイムアウト・DNS等）。")
+          except ValueError:
+              sys.exit("失敗: JSON形式を読み取れませんでした。")
+
+          if not isinstance(data, dict) or not isinstance(data.get("incidents"), list):
+              sys.exit("失敗: API応答に incidents 配列がありません。")
+          incidents = data["incidents"]
+          types = collections.Counter(
+              str((item.get("properties") or {}).get("iconCategory", "unknown"))
+              for item in incidents if isinstance(item, dict)
+          )
+          print("TomTom Traffic Incidents API (Orbis v2)")
+          print("接続結果: 成功 (HTTP {})".format(status))
+          print("照会範囲: 高松中心部と周辺 (経度133.95～134.20、緯度34.24～34.48)")
+          print("確認対象: 現在発生中としてAPIが返した事象")
+          print("取得件数:", len(incidents))
+          print("種別内訳:", dict(sorted(types.items())))
+          print("注意: 0件でも道路に事故・規制が存在しない証明にはなりません。")
+          PY
