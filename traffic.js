@@ -8,16 +8,31 @@
   panel.style.margin='8px 0';
   panel.setAttribute('aria-label','高松周辺の交通情報');
   const title=document.createElement('strong');title.textContent='高松周辺の道路情報';
-  const button=document.createElement('button');button.type='button';button.className='btn sm secondary';button.textContent='更新';button.style.marginLeft='12px';
+  const button=document.createElement('button');button.type='button';button.className='btn sm secondary';button.textContent='更新';
   const status=document.createElement('p');status.setAttribute('role','status');
   const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='場所・詳細';details.append(summary);
   const list=document.createElement('ul');details.append(list);
-  panel.append(title,button,status,details);anchor.insertAdjacentElement('afterend',panel);
+  const css=document.createElement('style');
+  css.textContent=`
+#traffic-live.card{padding:10px 12px;margin:6px 0!important}
+#traffic-live .traffic-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#traffic-live .traffic-head strong{font-size:14px;line-height:1.35;margin-right:auto}
+#traffic-live .traffic-head button{min-height:36px;padding:5px 10px;font-size:12px}
+#traffic-live .traffic-stamp{font-size:11px;color:var(--sub);white-space:nowrap}
+#traffic-live p{margin:6px 0 2px;font-size:14px;line-height:1.5}
+#traffic-live summary{font-size:12px;min-height:32px;display:list-item;line-height:32px;cursor:pointer}
+#traffic-live ul{max-height:45vh;overflow-y:auto;margin:4px 0 0;padding-left:22px;font-size:13px;line-height:1.6}
+#traffic-live li+li{margin-top:6px}
+`;
+  const head=document.createElement('div');head.className='traffic-head';
+  const stamp=document.createElement('small');stamp.className='traffic-stamp';
+  head.append(title,stamp,button);
+  panel.append(css,head,status,details);anchor.insertAdjacentElement('afterend',panel);
   const labels={accident:'事故',roadClosed:'通行止め',jam:'渋滞',roadWorks:'工事',other:'その他'};
   let busy=false,lastAttempt=0,expiry;
   function unavailable(){
     status.textContent='交通情報を取得できません。下の確認先をご利用ください。';
-    list.replaceChildren();details.hidden=true;
+    list.replaceChildren();details.hidden=true;stamp.textContent='';
   }
   async function update(){
     if(busy || Date.now()-lastAttempt<60000)return;
@@ -35,9 +50,9 @@
         !data.counts||Object.keys(labels).some(k=>!Number.isInteger(data.counts[k])||data.counts[k]<0)||
         Object.values(data.counts).reduce((a,b)=>a+b,0)!==data.total)throw new Error();
       const time=new Date(data.updatedAt).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'});
-      status.textContent=Object.entries(labels).map(([key,label])=>label+' '+data.counts[key]+'件').join(' ／ ')+
-        '（'+time+'取得'+(data.stale?'・更新遅延':'')+'）';
-      if(data.total===0)status.textContent+=' 対象範囲で情報がありません。';
+      status.textContent=Object.entries(labels).filter(([key])=>data.counts[key]>0)
+        .map(([key,label])=>label+' '+data.counts[key]+'件').join(' ／ ') || '対象範囲で交通情報なし';
+      stamp.textContent=time+'取得'+(data.stale?'・更新遅延':'');
       for(const item of data.incidents){
         const li=document.createElement('li');
         const location=[item.from,item.to].filter(x=>typeof x==='string'&&x).join(' → ');
@@ -58,4 +73,5 @@
   update();
   document.title='高松タクシー・シグナル v0.7w';
 })();
+
 
