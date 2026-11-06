@@ -12,8 +12,7 @@
   const status=document.createElement('p');status.setAttribute('role','status');
   const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='場所・詳細';details.append(summary);
   const list=document.createElement('ul');details.append(list);
-  const note=document.createElement('small');note.textContent='提供：TomTom。対象範囲で取得できた情報です。すべての交通障害を網羅するものではありません。';
-  panel.append(title,button,status,details,note);anchor.insertAdjacentElement('afterend',panel);
+  panel.append(title,button,status,details);anchor.insertAdjacentElement('afterend',panel);
   const labels={accident:'事故',roadClosed:'通行止め',jam:'渋滞',roadWorks:'工事',other:'その他'};
   let busy=false,lastAttempt=0,expiry;
   function unavailable(){
@@ -59,3 +58,4 @@
   update();
   document.title='高松タクシー・シグナル v0.7w';
 })();
+
