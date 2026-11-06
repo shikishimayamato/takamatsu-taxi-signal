@@ -1824,7 +1824,19 @@ function probability10(value){
     '<a href="https://www.jartic.or.jp/" '+
     'target="_blank" rel="noopener noreferrer">JARTIC：事故・渋滞 ↗</a>';
 
-  document.getElementById('sourceQuick').insertAdjacentElement('afterend', reference);
+    const linkList=document.getElementById('sourceQuick');
+
+  reference.querySelectorAll('a').forEach(function(link){
+    link.className='source';
+
+    const name=document.createElement('span');
+    name.className='name';
+    name.textContent=link.textContent.replace(/\s*↗$/, '');
+
+    link.textContent='';
+    link.appendChild(name);
+    linkList.appendChild(link);
+  });
 })();
 </script>
   
