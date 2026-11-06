@@ -401,12 +401,12 @@ html[data-theme="day"] .weather-strip{
 <body>
 <header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><img src="./signal-192.png" alt="" width="44" height="44"></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7m</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
 <main class="wrap" id="top">
+  <div class="notice notice-compact"><strong>運転中は操作しないでください。</strong><details><summary>利用上の注意</summary><p>催事の規模は参考分類です。乗車需要の実測・予測や配車指示ではありません。実際の終了・退場時刻を公式情報で確認し、駐停車規制・客待ち規制・営業区域を守ってください。強雨の状態は気象庁レーダーと短時間予測に基づく独自の参考判定です。検出されない場合でも安全を保証しません。</p></details></div>
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
     <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub"></small></div></div>
     <div class="rain-status" role="status" aria-live="polite"><strong class="rain-label" id="rainAlert">強雨：確認中</strong><details class="rain-details"><summary>詳細</summary><div class="rain-details-body"><small id="rainDetail">気象庁データを取得中</small><a class="rain-link" href="https://www.jma.go.jp/bosai/nowc/?contentType=1" target="_blank" rel="noopener noreferrer">気象庁の雨雲の動き ↗</a><small>レーダー画像に基づく参考判定。対象範囲内でも見逃しがあります。</small></div></details></div>
     <div class="wx-buttons"><button id="refresh" class="btn secondary sm" type="button" aria-label="気象情報を更新">↻ 更新</button><button class="btn secondary sm" id="installTop" type="button">＋ ホームに追加</button></div>
   </section>
-  <div class="notice notice-compact"><strong>運転中は操作しないでください。</strong><details><summary>利用上の注意</summary><p>催事の規模は参考分類です。乗車需要の実測・予測や配車指示ではありません。実際の終了・退場時刻を公式情報で確認し、駐停車規制・客待ち規制・営業区域を守ってください。強雨の状態は気象庁レーダーと短時間予測に基づく独自の参考判定です。検出されない場合でも安全を保証しません。</p></details></div>
   <section id="installInfo" class="install"><strong>📲 ホーム画面に追加する</strong><p id="installGuide">ブラウザーのメニューから「ホーム画面に追加」を選んでください。</p><button id="installDo" class="btn sm" hidden>アプリをインストール</button><button id="installHide" class="btn ghost sm">閉じる</button></section>
   <nav class="tabs" role="tablist" aria-label="機能"><button class="tab" data-tab="dash" role="tab" aria-selected="true">◉ 今日</button><button class="tab" data-tab="events" role="tab" aria-selected="false">▦ 催事・登録</button><button class="tab" data-tab="sources" role="tab" aria-selected="false">◇ 情報源</button></nav>
   <section class="view" id="view-dash" role="tabpanel">
@@ -1842,5 +1842,6 @@ function probability10(value){
   
 <script src="traffic.js"></script>
 </body></html>
+
 
 
