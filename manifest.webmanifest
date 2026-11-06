@@ -11,13 +11,13 @@
   "lang": "ja",
   "icons": [
     {
-      "src": "signal-192.png",
+      "src": "signal-192.png?v=07w6",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "signal-512.png",
+      "src": "signal-512.png?v=07w6",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
