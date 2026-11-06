@@ -414,7 +414,7 @@ html[data-theme="day"] .signal-mark{--mark-bg:#eaf6f8;--mark-edge:#6b9ca9;--mark
 <main class="wrap" id="top">
   <div class="notice notice-compact"><strong>運転中は操作しないでください。</strong><details><summary>利用上の注意</summary><p>催事の規模は参考分類です。乗車需要の実測・予測や配車指示ではありません。実際の終了・退場時刻を公式情報で確認し、駐停車規制・客待ち規制・営業区域を守ってください。強雨の状態は気象庁レーダーと短時間予測に基づく独自の参考判定です。検出されない場合でも安全を保証しません。</p></details></div>
   <section class="weather-strip" aria-label="高松中心部の天気と強雨の確認">
-    <div class="wx-primary"><span class="wx-symbol" aria-hidden="true">☁</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub"></small></div></div>
+    <div class="wx-primary"><span class="wx-symbol" role="img" aria-label="天気未取得">—</span><div class="wx-primary-text"><strong id="wxMain">天気取得中</strong><small id="wxSub"></small></div></div>
     <div class="rain-status" role="status" aria-live="polite"><strong class="rain-label" id="rainAlert">強雨：確認中</strong><details class="rain-details"><summary>詳細</summary><div class="rain-details-body"><small id="rainDetail">気象庁データを取得中</small><a class="rain-link" href="https://www.jma.go.jp/bosai/nowc/?contentType=1" target="_blank" rel="noopener noreferrer">気象庁の雨雲の動き ↗</a><small>レーダー画像に基づく参考判定。対象範囲内でも見逃しがあります。</small></div></details></div>
     <div class="wx-buttons"><button id="refresh" class="btn secondary sm" type="button" aria-label="気象情報を更新">↻ 更新</button><button class="btn secondary sm" id="installTop" type="button">＋ ホームに追加</button></div>
   </section>
@@ -515,9 +515,26 @@ function loadMemos(){try{const raw=JSON.parse(localStorage.getItem(KEY)||'[]');r
 function validateMemo(x){return x&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.length<=72&&ZONES.some(z=>z.id===x.zone)&&Number.isFinite(Date.parse(x.at))&&['event','rail','flight','port','road','other'].includes(x.type)&&['small','medium','large'].includes(x.size)}
 function saveMemos(){try{localStorage.setItem(KEY,JSON.stringify(memos));return true}catch{alert('保存できませんでした。ブラウザーの容量・プライベートモードをご確認ください。');return false}}
 function closestIndex(times,target){if(!times||!times.length)return -1;let best=-1,dist=Infinity;for(let i=0;i<times.length;i++){let time=Date.parse(times[i]+'+09:00');if(!Number.isFinite(time))continue;let dd=Math.abs(time-target);if(dd<dist){dist=dd;best=i}}return best}
-function getWx(z,time){if(!weather?.hourly)return null;const w=weather;let i=closestIndex(w.hourly.time,time);if(i<0||Math.abs(Date.parse(w.hourly.time[i]+'+09:00')-time)>60*60*1000)return null;return{temp:w.hourly.temperature_2m?.[i],precip:w.hourly.precipitation?.[i],prob:w.hourly.precipitation_probability?.[i]}}
+function getWx(z,time){if(!weather?.hourly)return null;const w=weather;let i=closestIndex(w.hourly.time,time);if(i<0||Math.abs(Date.parse(w.hourly.time[i]+'+09:00')-time)>60*60*1000)return null;return{temp:w.hourly.temperature_2m?.[i],precip:w.hourly.precipitation?.[i],prob:w.hourly.precipitation_probability?.[i],code:w.hourly.weather_code?.[i],isDay:w.hourly.is_day?.[i]}}
 function formatW(wx){if(!wx)return '天気データ未取得';return `予報 ${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${wx.precip==null?'--':wx.precip}mm / 確率 ${probability10(wx.prob)}%`}
-function renderStats(){const wx=getWx(ZONES[0],Date.now());$('wxMain').textContent=wx?`${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${probability10(wx.prob)}%`:'未取得';$('wxSub').textContent=wx?(lastFetched?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}).format(new Date(lastFetched))+'取得':''):'気象データ未取得';}
+function weatherMark(code,isDay){
+ if(!Number.isInteger(code))return ['—','天気未取得'];
+ if(code===0||code===1)return [isDay===0?'☾':'☀',code===0?'快晴':'晴れ'];
+ if(code===2)return ['⛅','晴れ時々曇り'];
+ if(code===3)return ['☁','曇り'];
+ if(code===45||code===48)return ['🌫','霧'];
+ if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code))return ['🌧','雨'];
+ if([71,73,75,77,85,86].includes(code))return ['❄','雪'];
+ if([95,96,97,99].includes(code))return ['⛈','雷雨'];
+ return ['—','天気不明'];
+}
+function renderWeatherMark(wx){
+ const icon=document.querySelector('.wx-symbol');if(!icon)return;
+ const [mark,label]=weatherMark(wx?.code,wx?.isDay);
+ icon.textContent=mark;icon.title=label+'（現在時刻に近い予報）';
+ icon.removeAttribute('aria-hidden');icon.setAttribute('role','img');icon.setAttribute('aria-label',label);
+}
+function renderStats(){const wx=getWx(ZONES[0],Date.now());renderWeatherMark(wx);$('wxMain').textContent=wx?`${wx.temp==null?'--':Math.round(wx.temp)}℃ / 降水 ${probability10(wx.prob)}%`:'未取得';$('wxSub').textContent=wx?(lastFetched?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}).format(new Date(lastFetched))+'取得':''):'気象データ未取得';}
 function renderEvents(){let list=[...memos].sort((a,b)=>new Date(a.at)-new Date(b.at));$('eventList').innerHTML=list.length?list.map(m=>`<div class="event"><div class="eventhead"><div><b>${esc(m.title)}</b><div class="eventtime">${esc(fmtDate(m.at))}</div></div><span class="chip">手動入力</span></div><div class="eventinfo">${esc(ZONES.find(z=>z.id===m.zone)?.name)} ／ ${esc({event:'催事',rail:'鉄道',flight:'空港',port:'船舶',road:'道路',other:'その他'}[m.type])} ／ 規模：${esc({small:'小・不明',medium:'中',large:'大'}[m.size])}</div>${m.note?`<div class="eventinfo">${esc(m.note)}</div>`:''}<div class="event-actions">${/^https:\/\//.test(m.link||'')?`<a class="minilink" target="_blank" rel="noopener noreferrer" href="${esc(m.link)}">入力された情報源 ↗</a>`:''}<button class="btn ghost sm" data-edit-memo="${esc(m.id)}">編集</button><button class="btn ghost sm" data-delete="${esc(m.id)}">削除</button></div></div>`).join(''):'<div class="empty">まだ登録がありません。催事の終演時刻や運休情報を手動で追加できます。</div>'}
 function validateAutoEvent(a){
  if(!a||typeof a.id!=='string'||typeof a.title!=='string'||a.title.length>120||!/^20\d{2}-\d{2}-\d{2}$/.test(a.date)||Number.isNaN(Date.parse(a.date+'T00:00:00+09:00')))return false;
@@ -664,7 +681,7 @@ $('exportFixes').addEventListener('click',()=>{let payload={schema:1,kind:'taxi-
 $('importFixes').addEventListener('click',()=>$('fixesFile').click());$('fixesFile').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;try{if(f.size>300000)throw Error();let v=JSON.parse(await f.text());if(v.schema!==1||v.kind!=='taxi-user-edits'||!Array.isArray(v.manual)||v.manual.length>150||!v.overrides||typeof v.overrides!=='object'||Object.keys(v.overrides).length>250)throw Error();if(v.manual.some(x=>!validManual(x)))throw Error();if(!confirm('この端末の登録・補正をバックアップで置き換えますか？'))return;privateManualEvents=v.manual;localFixes=sanitizeFixes(v.overrides);if(storeUserData())rebuildEvents()}catch{alert('対応したバックアップファイルを読み込めませんでした。')}finally{e.target.value=''}});
 function renderSources(){const cards=SOURCES.map(s=>`<a class="source" href="${s.url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(s.name)}の公式サイトを開く"><span class="name">${esc(s.name)}</span></a>`);$('sourceAll').innerHTML=cards.join('');$('sourceQuick').innerHTML=[0,1,2,3,5,6,8].map(i=>cards[i]).join('')}
 function renderAll(){renderStats();renderEvents();renderFocus()}
-async function refreshWeather(){const btn=$('refresh');btn.disabled=true;btn.textContent='取得中…';let url='https://api.open-meteo.com/v1/forecast?'+new URLSearchParams({latitude:'34.352',longitude:'134.047',hourly:'temperature_2m,precipitation,precipitation_probability',forecast_days:'2',timezone:'Asia/Tokyo'});try{const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);const res=await fetch(url,{cache:'no-store',signal:controller.signal});clearTimeout(timeout);if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();if(!data?.hourly?.time)throw new Error('気象APIの形式が異なります');weather=data;lastFetched=Date.now();btn.textContent='✓ 更新済';renderAll()}catch(err){btn.textContent='⚠ 失敗';$('wxSub').textContent='気象データを取得できません。再試行してください';console.warn('Weather API',err)}finally{btn.disabled=false;setTimeout(()=>btn.textContent='↻ 更新',3000)}}
+async function refreshWeather(){const btn=$('refresh');btn.disabled=true;btn.textContent='取得中…';let url='https://api.open-meteo.com/v1/forecast?'+new URLSearchParams({latitude:'34.352',longitude:'134.047',hourly:'temperature_2m,precipitation,precipitation_probability,weather_code,is_day',forecast_days:'2',timezone:'Asia/Tokyo'});try{const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);const res=await fetch(url,{cache:'no-store',signal:controller.signal});clearTimeout(timeout);if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();if(!data?.hourly?.time)throw new Error('気象APIの形式が異なります');weather=data;lastFetched=Date.now();btn.textContent='✓ 更新済';renderAll()}catch(err){btn.textContent='⚠ 失敗';$('wxSub').textContent='気象データを取得できません。再試行してください';console.warn('Weather API',err)}finally{btn.disabled=false;setTimeout(()=>btn.textContent='↻ 更新',3000)}}
 // v0.7d 気象庁の高解像度降水ナウキャスト（表示用タイル、非公式仕様）
 // 高松中心部と約6km圏を確認。色分け階級による参考判定であり、観測点での実測ではない。
 const NOWC_BASE = 'https://www.jma.go.jp/bosai/jmatile/data/nowc/';
@@ -1853,6 +1870,7 @@ function probability10(value){
   
 <script src="traffic.js"></script>
 </body></html>
+
 
 
 
