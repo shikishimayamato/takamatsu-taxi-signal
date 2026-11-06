@@ -1746,36 +1746,40 @@ html.v07n[data-theme="day"] .wx-link:visited{
   }
 }
 </style>
-  <!-- 高松周辺の交通情報 -->
+<!-- 高松周辺の交通情報：無料リンク版 -->
 <style>
-#traffic-panel{
+#traffic-short{
   margin:6px 0;padding:8px 10px;
-  border:1px solid #b18b45;border-radius:10px;
+  border:1px solid #78909c;border-radius:10px;
   background:#243847;color:#f5f7fa;
   font-size:12px;line-height:1.5
 }
-#traffic-panel summary{
-  cursor:pointer;min-height:28px;
-  display:flex;align-items:center;
-  justify-content:space-between;gap:8px;flex-wrap:wrap
+#traffic-short .traffic-buttons{
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:6px
 }
-#traffic-panel summary strong{color:#ffe0a3}
-#traffic-panel a{color:#b9f3ff}
-#traffic-panel .traffic-row{
-  padding:10px 0;border-top:1px solid #78909c
-}
-#traffic-panel small{display:block;margin:5px 0}
-#traffic-panel button{
-  min-height:44px;padding:7px 10px;
+#traffic-short a{
+  display:inline-flex;align-items:center;
+  min-height:40px;padding:0 10px;
+  border:1px solid #78909c;border-radius:8px;
   background:#fff;color:#173246;
-  border:1px solid #78909c;border-radius:7px;
-  cursor:pointer;font-size:12px
+  text-decoration:none;font-weight:bold
 }
-html[data-theme="day"] #traffic-panel{
-  background:#fff8e8;color:#173246
+#traffic-short small{
+  display:block;margin-top:5px;font-size:11px
 }
-html[data-theme="day"] #traffic-panel summary strong{color:#704313}
-html[data-theme="day"] #traffic-panel a{color:#125b78}
+#traffic-reference{
+  margin:24px 0 12px;padding:10px;
+  border-top:1px solid #78909c;
+  font-size:12px;line-height:1.6
+}
+#traffic-reference summary{cursor:pointer}
+#traffic-reference a{
+  display:inline-block;padding:10px 8px;
+  color:inherit;text-decoration:underline
+}
+html[data-theme="day"] #traffic-short{
+  background:#f0f6fa;color:#173246
+}
 </style>
 
 <script>
@@ -1788,130 +1792,39 @@ function probability10(value){
 (function(){
   'use strict';
   const weatherBar=document.querySelector('.weather-strip');
-  if(!weatherBar || document.getElementById('traffic-panel')) return;
+  const main=document.querySelector('main');
+  if(!weatherBar || !main) return;
+  if(document.getElementById('traffic-short')) return;
 
-  const sources=[
-    [
-      '香川県ホームページ：通行規制',
-      'https://www.pref.kagawa.lg.jp/douro/tuukoukisei/tuukoukisei.html',
-      '高松周辺の道路・対象車種・規制時間を確認してください。'
-    ],
-    [
-      '高松市：道路の通行止め',
-      'https://www.city.takamatsu.kagawa.jp/jigyosha/toshikeikaku/doro/tsukodome.html',
-      '市道の災害や長期工事などの情報です。'
-    ],
-    [
-      '国土交通省：道路情報',
-      'https://www.road-info-prvs.mlit.go.jp/roadinfo/sp/spTop_00_0.html',
-      '四国を選択してください。公式側は5～10分間隔更新です。'
-    ],
-    [
-      '日本道路交通情報センター（JARTIC）',
-      'https://www.jartic.or.jp/',
-      '一般道路の香川県を選び、事故・規制を確認してください。'
-    ]
-  ];
-
-  const panel=document.createElement('details');
-  panel.id='traffic-panel';
+  const panel=document.createElement('section');
+  panel.id='traffic-short';
+  panel.setAttribute('aria-label','Xで交通情報を確認');
   panel.innerHTML=
-    '<summary><strong id="traffic-state" role="status"></strong>'+
-    '<span>交通の詳細 ▾</span></summary>'+
-    '<p>高松周辺の一般道路を確認するための公式リンクです。'+
-    'このアプリは事故・通行止めを自動取得していません。</p>'+
-    '<p>125ccは高速道路・自動車専用道路を利用できません。'+
-    '一般道でも標識と車種別規制を確認してください。</p>'+
-    '<div id="traffic-links"></div>'+
-    '<p>閲覧記録は利用者の自己申告です。道路の安全や事故の解消を示すものではありません。</p>'+
-    '<p>降水確率は元の予報値を四捨五入し、10％刻みで表示します。</p>'+
-    '<button type="button" id="traffic-clear">閲覧記録を消す</button>';
+    '<strong>交通情報をXで確認</strong>'+
+    '<div class="traffic-buttons">'+
+    '<a href="https://x.com/KSBNews_5ch" target="_blank" '+
+    'rel="noopener noreferrer">KSBニュース ↗</a>'+
+    '<a href="https://x.com/iHighwayShikoku" target="_blank" '+
+    'rel="noopener noreferrer">四国の高速道路 ↗</a>'+
+    '</div>'+
+    '<small>投稿は自動取得しません。投稿日時と解除情報を確認してください。</small>';
 
   weatherBar.insertAdjacentElement('afterend',panel);
 
-  const key='taxi-traffic-viewed-v1';
-  let records={};
-  try{
-    const saved=JSON.parse(sessionStorage.getItem(key)||'{}');
-    if(saved && typeof saved==='object' && !Array.isArray(saved)){
-      records=saved;
-    }
-  }catch(e){}
+  const reference=document.createElement('details');
+  reference.id='traffic-reference';
+  reference.innerHTML=
+    '<summary>参考HP：道路の公式情報</summary>'+
+    '<a href="https://www.pref.kagawa.lg.jp/douro/tuukoukisei/tuukoukisei.html" '+
+    'target="_blank" rel="noopener noreferrer">香川県ホームページ：通行規制 ↗</a>'+
+    '<a href="https://www.city.takamatsu.kagawa.jp/jigyosha/toshikeikaku/doro/tsukodome.html" '+
+    'target="_blank" rel="noopener noreferrer">高松市：通行止め ↗</a>'+
+    '<a href="https://www.road-info-prvs.mlit.go.jp/roadinfo/sp/spTop_00_0.html" '+
+    'target="_blank" rel="noopener noreferrer">国土交通省：道路情報 ↗</a>'+
+    '<a href="https://www.jartic.or.jp/" '+
+    'target="_blank" rel="noopener noreferrer">JARTIC：事故・渋滞 ↗</a>';
 
-  const states=[];
-
-  function save(){
-    try{
-      sessionStorage.setItem(key,JSON.stringify(records));
-    }catch(e){}
-  }
-
-  sources.forEach(function(source,i){
-    const row=document.createElement('div');
-    row.className='traffic-row';
-
-    const link=document.createElement('a');
-    link.textContent=source[0]+' ↗';
-    link.href=source[1];
-    link.target='_blank';
-    link.rel='noopener noreferrer';
-
-    const note=document.createElement('small');
-    note.textContent=source[2];
-
-    const state=document.createElement('small');
-
-    const button=document.createElement('button');
-    button.type='button';
-    button.textContent='公式を閲覧したので記録';
-    button.addEventListener('click',function(){
-      records[i]=Date.now();
-      save();
-      render();
-    });
-
-    row.append(link,note,state,button);
-    panel.querySelector('#traffic-links').appendChild(row);
-    states.push(state);
-  });
-
-  function render(){
-    panel.querySelector('#traffic-state').textContent=
-      navigator.onLine
-      ? '道路：要確認／事故：未取得'
-      : 'オフライン／道路・事故：未確認';
-
-    states.forEach(function(state,i){
-      const t=records[i];
-      const age=Date.now()-t;
-
-      if(typeof t!=='number' || !Number.isFinite(t) || age<0){
-        state.textContent='閲覧記録なし';
-        return;
-      }
-
-      const time=new Intl.DateTimeFormat('ja-JP',{
-        timeZone:'Asia/Tokyo',
-        month:'numeric',day:'numeric',
-        hour:'2-digit',minute:'2-digit'
-      }).format(t);
-
-      state.textContent='自己申告の閲覧：'+time+
-        (age>=30*60000 ? '／30分経過・再確認' : '');
-    });
-  }
-
-  panel.querySelector('#traffic-clear').addEventListener('click',function(){
-    records={};
-    save();
-    render();
-  });
-
-  window.addEventListener('online',render);
-  window.addEventListener('offline',render);
-  document.addEventListener('visibilitychange',render);
-  setInterval(render,60000);
-  render();
+  main.appendChild(reference);
 })();
 </script>
   
