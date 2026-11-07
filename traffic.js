@@ -62,7 +62,13 @@
         list.append(li);
       }
       if(data.truncated){const li=document.createElement('li');li.textContent='詳細は先頭100件を表示しています。';list.append(li);}
-      details.hidden=data.total===0;
+      if (data.total === 0) {
+        const li = document.createElement('li');
+        li.textContent = '現在取得できた事故・通行止め・渋滞・工事の情報は0件です。最新の規制は公式情報も確認してください。';
+        list.append(li);
+      }
+      details.hidden = false;
+
       expiry=setTimeout(unavailable,900000-age);
     }catch{unavailable();}
     finally{busy=false;setTimeout(()=>{button.disabled=false;},60000);}
