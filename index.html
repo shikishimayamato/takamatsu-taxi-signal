@@ -2962,6 +2962,95 @@ a.source[data-signal-icon]::before {
 </script>
 <!-- 香川県への直リンク統一 ここまで -->
 
+<!-- 高松タクシー・シグナル：会場選択の整理／交通0件でも詳細を操作可能にする -->
+<script>
+(function () {
+  'use strict';
+  const venueSelect = document.getElementById('venueFilter');
+
+  function plain(value) {
+    return String(value || '').normalize('NFKC').replace(/[\s\u3000]/g, '').trim();
+  }
+
+  // 施設が特定できない名称は選択欄に表示しない。イベント本体は削除しない。
+  function shouldHideVenue(value) {
+    const name = plain(value);
+    if (!name) return true;
+    if (/^(?:不明|未公表|未定|会場未公表|会場不明|会場未定|開催場所未定|開催場所不明|場所未公表|場所不明|会場非公開|調整中|未設定|未指定)$/u.test(name)) return true;
+    if (/^(?:市内ホテル|高松市内ホテル|市内各ホテル|県内ホテル|市内各所|香川県内|県内各所|会場複数|その他|高松市)$/u.test(name)) return true;
+    // 「高松市、綾川町」など、複数自治体だけを列挙した会場名は除外。
+    const locality = '(?:高松市|綾川町|丸亀市|坂出市|さぬき市|三木町|宇多津町|観音寺市|三豊市|善通寺市|東かがわ市|土庄町|小豆島町|直島町|琴平町|多度津町|まんのう町)';
+    if (new RegExp('^' + locality + '(?:[、,，・／/]|及び|および|と)' + locality + '(?:(?:[、,，・／/]|及び|および|と)' + locality + ')*$', 'u').test(name)) return true;
+    return false;
+  }
+
+  function labelFor(value) {
+    return String(value || '').replace(/[\s\u3000]*(?:[、,，・／/]?[\s\u3000]*)ほか(?:[\s\u3000]*\d+か所)?[\s\u3000]*$/u, '').trim();
+  }
+
+  // 市外・離島は最後へ。それ以外は既存の北→南・優先施設の順番を維持する。
+  const outlying = /土庄町|小豆島町|丸亀市|坂出市|宇多津町|善通寺市|観音寺市|三豊市|さぬき市|東かがわ市|綾川町|三木町|琴平町|多度津町|まんのう町|直島町|女木島|男木島|小豆島|豊島|本島|与島|櫃石島|岩黒島|岡山市|倉敷市|児島|香川県外|離島/u;
+
+  function tidyVenueOptions() {
+    if (!venueSelect) return;
+    const current = [...venueSelect.options];
+    if (!current.length) return;
+    const chosen = venueSelect.value;
+    const kept = current.filter(o => o.value === 'all' || !shouldHideVenue(o.value));
+    const all = kept.filter(o => o.value === 'all');
+    const nearby = kept.filter(o => o.value !== 'all' && !outlying.test(plain(o.value)));
+    const distant = kept.filter(o => o.value !== 'all' && outlying.test(plain(o.value)));
+    const sorted = [...all, ...nearby, ...distant];
+    const needChange = sorted.length !== current.length || sorted.some((o, i) => current[i] !== o) || sorted.some(o => o.value !== 'all' && o.textContent !== labelFor(o.value));
+    if (!needChange) return;
+    for (const o of sorted) if (o.value !== 'all') o.textContent = labelFor(o.value);
+    venueSelect.replaceChildren(...sorted);
+    venueSelect.value = sorted.some(o => o.value === chosen) ? chosen : 'all';
+  }
+
+  if (venueSelect) {
+    new MutationObserver(tidyVenueOptions).observe(venueSelect, {childList: true});
+    tidyVenueOptions();
+  }
+
+  // 交通0件でも「場所・詳細」を開き、「0件」を明示する。
+  // 以前の traffic.js がアプリ内キャッシュから読み込まれても動作する。
+  function tidyTrafficDetails() {
+    const panel = document.getElementById('traffic-live');
+    if (!panel || panel.dataset.zeroDetailsInitialized === 'yes') return;
+    const status = panel.querySelector('p[role="status"]');
+    const details = panel.querySelector('details');
+    const list = details && details.querySelector('ul');
+    if (!status || !details || !list) return;
+    panel.dataset.zeroDetailsInitialized = 'yes';
+    function sync() {
+      if (!/対象範囲で交通情報なし/.test(status.textContent || '')) return;
+      details.hidden = false;
+      details.removeAttribute('hidden');
+      if (!list.children.length) {
+        const li = document.createElement('li');
+        li.textContent = '現在、対象範囲の事故・通行止め・渋滞・工事の取得情報は0件です。';
+        list.appendChild(li);
+      }
+    }
+    new MutationObserver(sync).observe(status, {childList: true, characterData: true, subtree: true});
+    sync();
+  }
+  tidyTrafficDetails();
+  // traffic.js によるパネル生成が遅れた場合にも対応。
+  if (!document.getElementById('traffic-live')) {
+    const watch = new MutationObserver(() => {
+      if (document.getElementById('traffic-live')) {
+        watch.disconnect();
+        tidyTrafficDetails();
+      }
+    });
+    watch.observe(document.body, {childList: true, subtree: true});
+  }
+})();
+</script>
+<!-- 会場・交通表示の調整ここまで -->
+
 </body></html>
 
 
