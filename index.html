@@ -2809,6 +2809,68 @@ a.source[data-signal-icon]::before {
 })();
 </script>
 <!-- スマホ表示4点修正ここまで -->
+<!-- 2026-11-07 高松タクシー・シグナル：香川県への直リンク統一 -->
+<script>
+(function () {
+  'use strict';
+  const JMA_RAIN = 'https://www.jma.go.jp/bosai/nowc/#zoom:9/lat:34.34/lon:134.05/colordepth:normal/elements:hrpns&slmcs';
+  const JMA_FORECAST = 'https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=370000';
+  const KAGAWA_RAIL = 'https://transit.yahoo.co.jp/diainfo/pref/37';
+  const KAGAWA_ROADS = 'https://dourokisei.pref.kagawa.lg.jp/';
+  const KAGAWA_HIGHWAY = 'https://roadway.yahoo.co.jp/traffic/pref/37/list';
+  const SETO_EXPRESSWAY = 'https://roadway.yahoo.co.jp/traffic/road/3160010/map';
+
+  function updateLink(a) {
+    const old = a.getAttribute('href') || '';
+    let to = null;
+    let name = null;
+    if (/^https:\/\/(?:www\.)?jma\.go\.jp\/bosai\/nowc\//i.test(old)) {
+      to = JMA_RAIN;
+    } else if (/^https:\/\/(?:www\.)?jma\.go\.jp\/bosai\/forecast\//i.test(old)) {
+      to = JMA_FORECAST;
+    } else if (/^https:\/\/www\.jr-shikoku\.co\.jp\/info\/(?:index\.html)?(?:\?.*)?$/i.test(old)) {
+      to = KAGAWA_RAIL;
+      name = '香川県 鉄道運行情報（JR・ことでん）';
+    } else if (/^https:\/\/www\.jartic\.or\.jp\//i.test(old)) {
+      to = KAGAWA_HIGHWAY;
+      name = '香川県 高速道路情報（JARTIC提供）';
+    } else if (/^https:\/\/www\.jb-honshi\.co\.jp\/customer_index\/traffic\//i.test(old)) {
+      to = SETO_EXPRESSWAY;
+      name = '瀬戸中央道 交通情報';
+    } else if (/^https:\/\/www\.road-info-prvs\.mlit\.go\.jp\/roadinfo\//i.test(old)) {
+      // 国交省の全国向け画面の代わりに香川県の公式規制一覧へ直行する。
+      to = KAGAWA_ROADS;
+      name = '香川県 道路通行規制';
+    }
+    if (to && old !== to) a.setAttribute('href', to);
+    if (name) {
+      const span = a.querySelector('.name');
+      if (span && span.textContent !== name) span.textContent = name;
+      else if (a.closest('#traffic-reference') && a.textContent.trim() !== name) a.textContent = name;
+      if (a.getAttribute('aria-label') !== name + 'を開く') a.setAttribute('aria-label', name + 'を開く');
+    }
+  }
+
+  function apply() {
+    document.querySelectorAll('a[href]').forEach(updateLink);
+    // 公式のサイトだけではなく地域別情報サイトも含むため見出しを正確にする。
+    const title = document.querySelector('#view-sources > .sectionhead h2');
+    if (title && title.textContent !== '香川県の情報を開く') title.textContent = '香川県の情報を開く';
+    const note = document.querySelector('#view-sources > .sectionhead p');
+    if (note && note.textContent !== '掲載情報の更新時刻や出典は、各リンク先でご確認ください。') note.textContent = '掲載情報の更新時刻や出典は、各リンク先でご確認ください。';
+  }
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, {once:true});
+  // 既存のイベント／情報源再描画で全国ページに戻っても、香川県へのリンクを復元する。
+  for (const id of ['sourceAll','sourceQuick','traffic-reference']) {
+    const el = document.getElementById(id);
+    if (el) new MutationObserver(function (changes) {
+      if (changes.some(m => m.addedNodes.length || m.removedNodes.length)) apply();
+    }).observe(el, {childList:true, subtree:true});
+  }
+})();
+</script>
+<!-- 香川県への直リンク統一 ここまで -->
 
 </body></html>
 
