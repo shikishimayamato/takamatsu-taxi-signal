@@ -451,8 +451,8 @@ a.source[data-ts-mlit]::before {content:"🚧"!important;display:inline-flex;ali
    if(!main||!icon)return;
    if(forecast){
      const pieces=[];
-     if(forecast.forecastHighC!==null && Number.isFinite(forecast.forecastHighC)) pieces.push('予想最高'+forecast.forecastHighC+'℃');
-     if(forecast.precipitationProbability!==null && Number.isFinite(forecast.precipitationProbability)) pieces.push('雨'+forecast.precipitationProbability+'%');
+　　if (Number.isFinite(forecast.forecastHighC)) pieces.push(forecast.forecastHighC + '℃' + (Number.isFinite(forecast.forecastLowC) ? '/' + forecast.forecastLowC + '℃' : ''));
+　　if (Number.isFinite(forecast.precipitationProbability)) pieces.push(forecast.precipitationProbability + '%');+'%');
      if(!pieces.length)pieces.push('予報を確認');
      const str=pieces.join(' ');
      if(main.textContent!==str)main.textContent=str;
