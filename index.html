@@ -743,8 +743,54 @@ function renderAutoEvents(){
  meta.style.display=(autoLoadError || stale || autoPartial || gymWarnings.length>0 || ['error','partial'].includes(gymStatus) || (!autoUpdatedAt && !autoEvents.length))?'block':'none';
  document.querySelectorAll('[data-range]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.range===eventRange)));
  if(!autoEvents.length){$('venueCounts').textContent='取得0件';el.innerHTML='<div class="empty">自動取得した催事はまだありません。手動入力機能は引き続き利用できます。</div>';$('eventMore').hidden=true;renderFocus();return}
- const venueSel=$('venueFilter');const currentSel=venueSel.value;const venues=[...new Set(autoEvents.map(x=>x.venue))].sort((a,b)=>a.localeCompare(b,'ja'));venueSel.innerHTML='<option value="all">すべての会場</option>'+venues.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');venueSel.value=venues.includes(currentSel)?currentSel:'all';const venueFilter=venueSel.value,tierFilter=$('tierFilter').value;
- const filtered=periodEvents(eventRange,autoEvents).filter(a=>(venueFilter==='all'||a.venue===venueFilter)&&(tierFilter==='all'||scaleEstimate(a).key===tierFilter)).sort(eventSort);
+ /* このコードで、index.html の 746～747行目の既存2行を丸ごと置き換える。
+   既存の renderAutoEvents() 関数の中だけに貼ること。*/
+  // 「情報源」の説明見出しは不要。リンク一覧そのものは残す。
+  const sourceHeading = document.querySelector('#view-sources > .sectionhead');
+  if (sourceHeading) sourceHeading.style.setProperty('display', 'none', 'important');
+
+  // 同じ建物の大ホール・小ホール・会議室などは、施設名ひとつにまとめる。
+  // イベントカード内の正式な会場名／部屋名には一切手を加えない。
+  const facilityKey = value => {
+    const name = String(value || '').normalize('NFKC').replace(/[\s\u3000]/g, '');
+    const groups = [
+      ['サンポートホール高松', /サンポートホール/],
+      ['レクザムホール', /レクザムホール|レグザムホール|香川県県民ホール|香川県民ホール/],
+      ['あなぶきアリーナ香川', /あなぶきアリーナ香川|香川県立アリーナ/],
+      ['高松市総合体育館', /高松市総合体育館/],
+      ['香川総合体育館', /香川総合体育館/],
+      ['仏生山公園体育館', /仏生山公園体育館/],
+      ['国分寺橘ノ丘総合運動公園', /国分寺橘ノ丘総合運動公園/],
+      ['西部運動センター', /西部運動センター/],
+      ['かわなべスポーツセンター', /かわなべスポーツセンター/],
+      ['東部運動公園', /東部運動公園/],
+      ['亀水運動センター', /亀水運動センター/],
+      ['りんくうスポーツ公園', /りんくうスポーツ公園/],
+      ['牟礼総合体育館', /牟礼総合体育館/],
+      ['香南体育館', /香南体育館/],
+      ['ホタルと文化の里運動場', /ホタルと文化の里運動場/],
+      ['牟礼中央公園運動センター', /牟礼中央公園運動センター/],
+      ['JRホテルクレメント高松', /JRホテルクレメント高松|ホテルクレメント高松/],
+      ['ホテルパールガーデン', /ホテルパールガーデン/]
+    ];
+    for (const [facility, pattern] of groups) {
+      if (pattern.test(name)) return facility;
+    }
+    // 不確かな施設名はむやみに統合せず、元の表記を保持する。
+    return String(value || '').trim();
+  };
+
+  const venueSel = $('venueFilter');
+  const currentSel = venueSel.value;
+  const venues = [...new Set(autoEvents.map(a => facilityKey(a.venue)))].sort((a,b) => a.localeCompare(b, 'ja'));
+  venueSel.innerHTML = '<option value="all">すべての会場</option>' + venues.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  venueSel.value = venues.includes(currentSel) ? currentSel : 'all';
+  const venueFilter = venueSel.value, tierFilter = $('tierFilter').value;
+  const filtered = periodEvents(eventRange, autoEvents).filter(a =>
+    (venueFilter === 'all' || facilityKey(a.venue) === venueFilter) &&
+    (tierFilter === 'all' || scaleEstimate(a).key === tierFilter)
+  ).sort(eventSort);
+
  $('venueCounts').textContent=`表示対象 ${filtered.length}件 ／ 取得総数：スポーツ ${gymCount}件（${gymVenueCount}施設）・アリーナ ${counts['あなぶきアリーナ香川']}件・サンポート ${counts['サンポートホール高松']}件・公開大会 ${convCount}件（重複を含む）`;
  el.innerHTML=filtered.slice(0,eventLimit).map(a=>eventCard(a)).join('')||'<div class="empty">この条件に該当する催事はありません。期間や規模を変更してください。</div>';
  const more=$('eventMore');more.hidden=filtered.length<=eventLimit;if(!more.hidden)more.textContent=`さらに表示（残り ${filtered.length-eventLimit} 件）`;
