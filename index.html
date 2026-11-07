@@ -787,7 +787,46 @@ function renderAutoEvents(){
 
   const venueSel = $('venueFilter');
   const currentSel = venueSel.value;
-  const venues = [...new Set(autoEvents.map(a => facilityKey(a.venue)))].sort((a,b) => a.localeCompare(b, 'ja'));
+    // 大規模施設・サンポートを最優先、次に市内を概ね北から南へ並べる。
+  // 距離情報のない新規会場は地名で概算し、それでも不明なら市内の中ほどに置く。
+  const facilityPriority = new Map([
+    ['あなぶきアリーナ香川',10],
+    ['サンポートホール高松',20],
+    ['かがわ国際会議場',30],
+    ['JRホテルクレメント高松',40],
+    ['レクザムホール',50],
+    ['亀水運動センター',110],
+    ['ホテルパールガーデン',120],
+    ['高松市総合体育館',130],
+    ['東部運動公園',170],
+    ['牟礼総合体育館',210],
+    ['牟礼中央公園運動センター',240],
+    ['西部運動センター',380],
+    ['かわなべスポーツセンター',480],
+    ['仏生山公園体育館',570],
+    ['国分寺橘ノ丘総合運動公園',650],
+    ['香川総合体育館',730],
+    ['香南体育館',790],
+    ['りんくうスポーツ公園',810],
+    ['ホタルと文化の里運動場',890],
+    ['学校等',900]
+  ]);
+  const facilitySortRank = venue => {
+    const n = String(venue || '').normalize('NFKC').replace(/[\s\u3000]/g,'');
+    if (/女木島|男木島|小豆島|直島|豊島|本島|櫃石島|岩黒島|与島|離島|坂出市|丸亀市|観音寺市|三豊市|さぬき市|東かがわ市|善通寺市|三木町|宇多津町|琴平町|岡山市|倉敷市|児島/.test(n)) return 10000;
+    if (facilityPriority.has(venue)) return facilityPriority.get(venue);
+    if (/サンポート|浜ノ町|高松駅|高松港|高松シンボルタワー/.test(n)) return 75;
+    if (/朝日町|福岡町|城東町|松福町|瀬戸内町|新北町|番町|錦町/.test(n)) return 140;
+    if (/屋島|牟礼|高松町/.test(n)) return 250;
+    if (/瓦町|丸亀町|田町|栗林|中央町|亀岡町|天神前|亀井町/.test(n)) return 320;
+    if (/円座|鬼無|香西|木太|林町|多肥|上林/.test(n)) return 460;
+    if (/国分寺|仏生山|川部町|一宮|三谷町/.test(n)) return 670;
+    if (/香南|香川町|空港|塩江/.test(n)) return 850;
+    return 500;
+  };
+  const venues = [...new Set(autoEvents.map(a => facilityKey(a.venue)))].sort((a,b) =>
+    facilitySortRank(a) - facilitySortRank(b) || a.localeCompare(b,'ja'));
+
   venueSel.innerHTML = '<option value="all">すべての会場</option>' + venues.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
   venueSel.value = venues.includes(currentSel) ? currentSel : 'all';
   const venueFilter = venueSel.value, tierFilter = $('tierFilter').value;
