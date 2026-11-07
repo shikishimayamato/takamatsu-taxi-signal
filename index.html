@@ -2538,7 +2538,210 @@ a.source[data-signal-icon]::before {
   }
 }
 </style>
- 
+
+<!-- 2026-11-07 高松タクシー・シグナル：スマホ表示7項目一括改善 -->
+<style id="ts-ui-7items-20261107">
+/* 2：タブ先頭の飾りはJavaScriptで削除 */
+/* 3：重複見出しとイベント一覧ボタンを非表示。イベント内容・期間切替は維持 */
+#view-dash .focus-header {display:none!important}
+#view-dash .focus-switch {margin-top:0!important}
+/* 4：今日・明日・大規模・終了時刻の件数枠を非表示 */
+#view-dash .pulse-stats {display:none!important}
+/* 7：自動収集時刻などの長い補足文字は非表示（自動取得処理は維持） */
+#view-events #autoMeta {display:none!important}
+
+/* 1：スマホの天気を完全な1行に固定。雨雲の詳細と更新は使用可能 */
+@media (max-width:640px) {
+  html.v07n .weather-strip {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) max-content 44px!important;
+    grid-template-areas:"weather rain actions"!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    justify-content:stretch!important;
+    gap:0 4px!important;
+    padding:5px 7px!important;
+    margin:5px 0!important;
+    min-height:0!important;
+  }
+  html.v07n .wx-link {
+    grid-area:weather!important;
+    display:block!important;
+    flex:none!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    overflow:hidden!important;
+  }
+  html.v07n .wx-primary {
+    display:flex!important;
+    flex:none!important;
+    gap:3px!important;
+    width:100%!important;
+    min-width:0!important;
+    align-items:center!important;
+  }
+  html.v07n .wx-symbol {
+    flex:0 0 auto!important;
+    font-size:18px!important;
+  }
+  html.v07n .wx-primary-text {
+    min-width:0!important;
+    overflow:hidden!important;
+  }
+  html.v07n .wx-primary-text strong {
+    display:block!important;
+    font-size:clamp(12px,3.35vw,15px)!important;
+    letter-spacing:-.035em!important;
+    line-height:1.2!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:clip!important;
+    word-break:normal!important;
+  }
+  html.v07n .rain-status {
+    grid-area:rain!important;
+    display:flex!important;
+    flex:none!important;
+    width:auto!important;
+    min-width:0!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    flex-wrap:nowrap!important;
+    gap:2px!important;
+  }
+  html.v07n .rain-label {
+    display:inline-block!important;
+    flex:none!important;
+    font-size:clamp(11px,3vw,13px)!important;
+    line-height:1.2!important;
+    padding:4px 3px!important;
+    min-width:0!important;
+    max-width:none!important;
+    white-space:nowrap!important;
+    word-break:keep-all!important;
+  }
+  html.v07n .rain-details {
+    flex:none!important;
+    min-width:0!important;
+  }
+  html.v07n .rain-details summary {
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:27px!important;
+    min-width:27px!important;
+    height:42px!important;
+    padding:0!important;
+    margin:0!important;
+    font-size:0!important; /* 「詳細」を残したまま見た目だけ矢印に */
+    text-decoration:none!important;
+    white-space:nowrap!important;
+  }
+  html.v07n .rain-details summary::after {
+    content:"▾"!important;
+    font-size:21px!important;
+    line-height:1!important;
+    text-decoration:none!important;
+  }
+  html.v07n .rain-details[open] summary::after {content:"▴"!important}
+  html.v07n .wx-buttons {
+    grid-area:actions!important;
+    display:flex!important;
+    flex:none!important;
+    width:44px!important;
+    min-width:44px!important;
+    margin:0!important;
+    padding:0!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    gap:0!important;
+  }
+  html.v07n .wx-buttons #refresh {
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:44px!important;
+    min-width:44px!important;
+    height:44px!important;
+    min-height:44px!important;
+    padding:0!important;
+    margin:0!important;
+    font-size:0!important;
+  }
+  html.v07n .wx-buttons #refresh::after {
+    content:"↻"!important;
+    font-size:23px!important;
+    line-height:1!important;
+  }
+  html.v07n .wx-buttons #refresh[title*="失敗"]::after {content:"!"!important}
+  html.v07n .wx-buttons #refresh:disabled::after {content:"…"!important}
+  /* 未インストール時の「ホームに追加」は天気欄の外に移す */
+  html.v07n #installTop.install-shortcut:not([hidden]) {
+    display:flex!important;
+    align-items:center!important;
+    width:max-content!important;
+    max-width:100%!important;
+    min-height:38px!important;
+    margin:4px 0 4px auto!important;
+    padding:5px 10px!important;
+    font-size:14px!important;
+  }
+}
+</style>
+<script>
+(function(){
+  'use strict';
+  const SMARTPHONE_ROADS='https://www.road-info-prvs.mlit.go.jp/roadinfo/sp/';
+  function tidySevenItems(){
+    /* 天気は一列。未インストール時の導入ボタンだけを欄外へ移動 */
+    const install=document.getElementById('installTop');
+    const strip=document.querySelector('.weather-strip');
+    if(install && strip && install.parentElement &&
+       install.parentElement.classList.contains('wx-buttons') &&
+       window.matchMedia('(max-width:640px)').matches){
+      strip.insertAdjacentElement('afterend',install);
+      install.classList.add('install-shortcut');
+      install.textContent='＋ ホームに追加';
+    }
+    /* 2：タブの飾りを除去 */
+    const tabs={dash:'今日',events:'イベント',sources:'情報源'};
+    for(const [key,name] of Object.entries(tabs)){
+      const b=document.querySelector('.tabs .tab[data-tab="'+key+'"]');
+      if(b && b.textContent!==name)b.textContent=name;
+    }
+    /* 5：国交省道路情報はすべてスマホ入口に統一（古いPC版上書きも訂正） */
+    document.querySelectorAll('a[href*="road-info-prvs.mlit.go.jp"]').forEach(function(a){
+      if(a.href!==SMARTPHONE_ROADS)a.href=SMARTPHONE_ROADS;
+    });
+    /* 6：サンメッセ香川の表示名・案内文から取得停止中の注記を取り除く */
+    document.querySelectorAll('a.source[href*="sunmesse.com"]').forEach(function(a){
+      const name=a.querySelector('.name');
+      if(name){
+        const next=name.textContent.replace(/[（(]自動取得停止中[）)]/g,'');
+        if(name.textContent!==next)name.textContent=next;
+      }
+      const current=a.getAttribute('aria-label')||'';
+      const clean=current.replace(/[（(]自動取得停止中[）)]/g,'');
+      if(clean!==current)a.setAttribute('aria-label',clean);
+      const desc=a.querySelector('.desc');
+      if(desc && /自動取得停止中|SSL接続を調査中/.test(desc.textContent))desc.textContent='イベントの公式日程を確認';
+    });
+  }
+  tidySevenItems();
+  document.addEventListener('DOMContentLoaded',tidySevenItems,{once:true});
+  /* 情報源が再描画された場合にも、リンクと表示名を修正 */
+  for(const id of ['sourceQuick','sourceAll']){
+    const host=document.getElementById(id);
+    if(!host)continue;
+    new MutationObserver(function(changes){
+      if(changes.some(function(c){return c.addedNodes.length>0 || c.removedNodes.length>0}))tidySevenItems();
+    }).observe(host,{childList:true,subtree:true});
+  }
+})();
+</script>
+<!-- 2026-11-07 7項目一括改善ここまで -->
+
 </body></html>
 
 
