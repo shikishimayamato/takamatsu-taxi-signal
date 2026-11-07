@@ -2741,6 +2741,74 @@ a.source[data-signal-icon]::before {
 })();
 </script>
 <!-- 2026-11-07 7項目一括改善ここまで -->
+<!-- 高松タクシー・シグナル：2026-11-07 スマホ表示4点修正 -->
+<style id="ts-ui-4fix-20261107">
+/* 「イベント予定」の重複見出しを消し、更新ボタンは残す */
+#view-events > .sectionhead h2 { display:none!important; }
+#view-events > .sectionhead { justify-content:flex-end!important; margin:0 0 8px!important; }
+
+@media (max-width:640px) {
+  /* 天気は1行のまま、気温・降水確率を大きく表示 */
+  html.v07n .weather-strip {
+    grid-template-columns:minmax(0,1fr) max-content 56px!important;
+    column-gap:3px!important;
+    padding:5px 6px!important;
+  }
+  html.v07n .wx-primary { gap:3px!important; }
+  html.v07n .wx-symbol { font-size:20px!important; }
+  html.v07n .wx-primary-text strong {
+    font-size:clamp(17px,5vw,21px)!important;
+    font-weight:800!important;
+    letter-spacing:-.045em!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+  }
+  html.v07n .rain-status { gap:1px!important; }
+  html.v07n .rain-label {
+    font-size:clamp(11px,3.15vw,13px)!important;
+    padding:4px 2px!important;
+  }
+  html.v07n .rain-details summary { width:21px!important; min-width:21px!important; }
+  html.v07n .rain-details summary::after { font-size:18px!important; }
+  /* 天気更新ボタンの円形矢印を「更新」に戻す */
+  html.v07n .wx-buttons { width:56px!important; min-width:56px!important; }
+  html.v07n .wx-buttons #refresh {
+    width:56px!important;
+    min-width:56px!important;
+    font-size:0!important;
+  }
+  html.v07n .wx-buttons #refresh::after,
+  html.v07n .wx-buttons #refresh[title*="失敗"]::after {
+    content:"更新"!important;
+    font-size:16px!important;
+    font-weight:800!important;
+  }
+  html.v07n .wx-buttons #refresh:disabled::after {
+    content:"更新中"!important;
+    font-size:12px!important;
+  }
+}
+</style>
+<script>
+/* 「イベントデータを再読込」を「イベント更新」に短縮。
+   自動更新後に元の長い文言へ戻っても再調整する。 */
+(function(){
+  'use strict';
+  const button=document.getElementById('refreshAuto');
+  if(!button)return;
+  function shorten(){
+    const text=button.disabled?'更新中…':'イベント更新';
+    if(button.textContent!==text)button.textContent=text;
+    if(button.getAttribute('aria-label')!==text)button.setAttribute('aria-label',text);
+  }
+  new MutationObserver(shorten).observe(button,{
+    childList:true,subtree:true,characterData:true,
+    attributes:true,attributeFilter:['disabled']
+  });
+  shorten();
+})();
+</script>
+<!-- スマホ表示4点修正ここまで -->
 
 </body></html>
 
