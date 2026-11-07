@@ -32,6 +32,8 @@ jobs:
         run: python scripts/fetch_gym.py
       - name: レクザムホール公式催事を取得
         run: python scripts/fetch_rexam.py
+      - name: 香川県の公式PDFから高松港クルーズ船寄港予定を取得
+        run: python scripts/fetch_cruise.py
       - name: GitHub Pagesの公開準備
         uses: actions/configure-pages@v5
       - name: 公開ファイルをアップロード
