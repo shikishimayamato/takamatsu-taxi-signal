@@ -452,7 +452,7 @@ a.source[data-ts-mlit]::before {content:"🚧"!important;display:inline-flex;ali
    if(forecast){
      const pieces=[];
 　　if (Number.isFinite(forecast.forecastHighC)) pieces.push(forecast.forecastHighC + '℃' + (Number.isFinite(forecast.forecastLowC) ? '/' + forecast.forecastLowC + '℃' : ''));
-　　if (Number.isFinite(forecast.precipitationProbability)) pieces.push(forecast.precipitationProbability + '%');+'%');
+　　if (Number.isFinite(forecast.precipitationProbability)) pieces.push(forecast.precipitationProbability + '%');
      if(!pieces.length)pieces.push('予報を確認');
      const str=pieces.join(' ');
      if(main.textContent!==str)main.textContent=str;
