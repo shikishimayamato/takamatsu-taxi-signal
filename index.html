@@ -408,6 +408,142 @@ html[data-theme="day"] .signal-mark{--mark-bg:#eaf6f8;--mark-edge:#6b9ca9;--mark
 .signal-grid{fill:none;stroke:var(--mark-grid);stroke-width:1.6;stroke-linecap:round}
 .signal-dot{fill:var(--mark-radio)}
 </style>
+<!-- 高松タクシー・シグナル：2026-11-07 六項目修正（この塊を </head> の直前に一回だけ貼る） -->
+<style>
+/* 旧「候補」を消す・施設名の見やすさは前版を維持 */
+#view-dash .size-mark, #view-events .size-mark {white-space:normal}
+/* 天気：カラー絵文字。既存の大きな文字サイズは維持 */
+.weather-strip .wx-symbol {font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif!important;font-size:22px!important;line-height:1.1}
+/* ニュースと高速道路：左側に内容別マークを表示し、末尾の↗は表示しない */
+#traffic-short .traffic-buttons a[data-ts-icon] {gap:.4em;white-space:normal}
+#traffic-short .traffic-buttons a[data-ts-icon]::before {content:attr(data-ts-icon);font:normal 1.1em/1 "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+/* 国土交通省の道路ショートカット：公的マークの使用許可までは道路アイコン */
+a.source[data-ts-mlit]::before {content:"🚧"!important;display:inline-flex;align-items:center;justify-content:center;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif!important}
+</style>
+<script>
+(function(){
+ 'use strict';
+ /* 既存のOpen-Meteo無料APIを呼ばない。商用化前から呼び出しを遮断。 */
+ const originalFetch=window.fetch.bind(window);
+ window.fetch=function(input,options){
+   const address=typeof input==='string'?input:(input&&input.url)||'';
+   if(address.startsWith('https://api.open-meteo.com/'))
+     return Promise.reject(new Error('Open-Meteo free API disabled: commercial-use policy'));
+   return originalFetch(input,options);
+ };
+ const WEATHER_URL='https://takamatsu-weather-proxy.shikishimanippon5.workers.dev/forecast';
+ let forecast=null, loadPending=false, shown=false;
+ function weatherEmoji(data){
+   const code=Number(data.weatherCode);
+   const text=String(data.weatherText||'');
+   if(/雷/.test(text))return '⛈️';
+   if(/雪/.test(text)||Math.floor(code/100)===4)return '🌨️';
+   if(/雨/.test(text)||Math.floor(code/100)===3)return '🌧️';
+   if(Math.floor(code/100)===2||/曇|くもり/.test(text)&&!/晴/.test(text))return '☁️';
+   if(/晴/.test(text)&&/曇|くもり/.test(text))return '🌤️';
+   if(Math.floor(code/100)===1||/晴/.test(text))return '☀️';
+   return '🌤️';
+ }
+ function updateWeatherUI(){
+   const main=document.getElementById('wxMain');
+   const icon=document.querySelector('.weather-strip .wx-symbol');
+   const sub=document.getElementById('wxSub');
+   if(!main||!icon)return;
+   if(forecast){
+     const pieces=[];
+     if(forecast.forecastHighC!==null && Number.isFinite(forecast.forecastHighC)) pieces.push('予想最高'+forecast.forecastHighC+'℃');
+     if(forecast.precipitationProbability!==null && Number.isFinite(forecast.precipitationProbability)) pieces.push('雨'+forecast.precipitationProbability+'%');
+     if(!pieces.length)pieces.push('予報を確認');
+     const str=pieces.join(' ');
+     if(main.textContent!==str)main.textContent=str;
+     const em=weatherEmoji(forecast);
+     if(icon.textContent!==em)icon.textContent=em;
+     const weatherDesc='気象庁 '+(forecast.weatherText||'')+'（'+(forecast.area||'香川県')+'）';
+     if(icon.getAttribute('aria-label')!==weatherDesc)icon.setAttribute('aria-label',weatherDesc);
+     if(icon.title!==weatherDesc)icon.title=weatherDesc;
+     if(sub && sub.textContent!=='出典：気象庁')sub.textContent='出典：気象庁';
+   } else if(shown){
+     if(main.textContent!=='気象庁の天気を取得できません') main.textContent='気象庁の天気を取得できません';
+     if(icon.textContent!=='🌐')icon.textContent='🌐';
+   }
+ }
+ async function fetchForecast(){
+   if(loadPending)return;
+   loadPending=true;
+   const button=document.getElementById('refresh');
+   if(button)button.disabled=true;
+   try{
+     const ctrl=new AbortController(), timer=setTimeout(()=>ctrl.abort(),12000);
+     let res;
+     try{res=await originalFetch(WEATHER_URL,{cache:'no-store',signal:ctrl.signal})}
+     finally{clearTimeout(timer)}
+     if(!res.ok)throw Error('HTTP '+res.status);
+     const v=await res.json();
+     if(v.status!=='ok'||!/^\d{3}$/.test(String(v.weatherCode||'')))throw Error('天気データ形式不一致');
+     if(v.issuedAt && Date.now()-Date.parse(v.issuedAt)>12*3600000)throw Error('天気データが古い');
+     forecast=v;shown=true;updateWeatherUI();
+   }catch(err){
+     console.warn('気象庁天気予報',err);
+     forecast=null;shown=true;updateWeatherUI();
+   }finally{loadPending=false;if(button)button.disabled=false;}
+ }
+ function refineLabels(){
+   document.querySelectorAll('.size-mark,.signal-event .size-mark').forEach(el=>{
+     const old=el.textContent;
+     const next=old.replace(/候補/g,'');
+     if(next!==old)el.textContent=next;
+   });
+   const large=document.getElementById('focusLarge');
+   const label=large&&large.parentElement?.querySelector('small');
+   if(label && /候補/.test(label.textContent))label.textContent=label.textContent.replace(/候補/g,'');
+ }
+ function fixLinksAndNames(){
+   document.querySelectorAll('a[href*="road-info-prvs.mlit.go.jp"]').forEach(a=>{
+     // Deep URLs are fragile. Use the official entrance confirmed by MLIT.
+     a.href='https://www.road-info-prvs.mlit.go.jp/roadinfo/pc/';
+     if(a.classList.contains('source'))a.setAttribute('data-ts-mlit','1');
+   });
+   document.querySelectorAll('#traffic-short .traffic-buttons a').forEach(a=>{
+     const href=a.href;
+     if(href.includes('KSBNews_5ch')) {a.textContent='ニュース';a.setAttribute('data-ts-icon','📰');}
+     else if(href.includes('iHighwayShikoku')) {a.textContent='高速道路';a.setAttribute('data-ts-icon','🛣️');}
+   });
+   // The source of forecast data must also be described accurately.
+   const info=document.querySelectorAll('#view-sources p.tagline');
+   if(info[0]) info[0].textContent=info[0].textContent.replace(
+     'この試作版では、Open-Meteoの予報APIから気温・降水確率・降水量を取得します。',
+     '天気欄では気象庁発表の香川県の天気予報（天気・時間帯別降水確率・予想最高気温）を表示します。');
+   if(info[1]) info[1].textContent='気象庁の雨雲情報と天気予報は異なるものです。天気欄の降水確率は、その瞬間の雨量を示すものではありません。';
+   if(info[2]) info[2].textContent='天気データの出典：気象庁。公開情報を加工して表示します。気象庁ウェブサイトからの安定取得・即時更新は保証されません。';
+   const credit=document.querySelector('#view-sources p.smallprint');
+   if(credit){credit.textContent='天気データ：';const a=document.createElement('a');a.href='https://www.jma.go.jp/bosai/forecast/';a.target='_blank';a.rel='noopener noreferrer';a.textContent='気象庁（公式天気予報）';credit.append(a);}
+   document.querySelectorAll('footer.foot').forEach(foot=>{
+     const n=foot.querySelector('a[href*="open-meteo.com"]');
+     if(n){n.href='https://www.jma.go.jp/bosai/forecast/';n.textContent='気象庁';}
+     foot.childNodes.forEach(node=>{
+       if(node.nodeType===Node.TEXT_NODE && /Open-Meteo/.test(node.nodeValue))node.nodeValue=node.nodeValue.replace(/Open-Meteo/g,'気象庁');
+     });
+   });
+ }
+ function init(){
+   fixLinksAndNames();refineLabels();
+   // Capture phase suppresses the old refresh handler without modifying events/traffic scripts.
+   document.addEventListener('click', e=>{
+     if(e.target.closest?.('#refresh')){e.preventDefault();e.stopImmediatePropagation();fetchForecast();}
+   },true);
+   const main=document.getElementById('wxMain');
+   if(main)new MutationObserver(updateWeatherUI).observe(main,{childList:true,characterData:true,subtree:true});
+   for(const id of ['focusCards','autoEventList','convList']){
+     const root=document.getElementById(id);
+     if(root)new MutationObserver(refineLabels).observe(root,{childList:true,subtree:true});
+   }
+   fetchForecast();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+<!-- 2026-11-07 六項目修正ここまで -->
+  
 </head>
 <body>
 <header class="topbar"><div class="wrap topinner"><a class="brand" href="#top"><div class="brandicon"><svg class="signal-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect class="signal-bg" x="2" y="2" width="60" height="60" rx="17"/><path class="signal-grid" d="M12 18h14M12 46h16M38 46h12"/><path class="signal-pulse" d="M11 36h10l6-13 7 23 7-15h12"/><path class="signal-radio" d="M39 13a15 15 0 0 1 13 13M40 20a8 8 0 0 1 6 6"/><circle class="signal-dot" cx="40" cy="27" r="2"/></svg></div><div><b>高松タクシー・シグナル</b></div></a><div class="headright"><span class="pill">試作 v0.7m</span><button class="theme-toggle" id="themeToggle" type="button" aria-label="配色を切り替える">☀ 昼</button><div class="clock"><strong id="clock">--:--</strong><small id="today">高松時間</small></div></div></div></header>
