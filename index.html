@@ -2458,6 +2458,87 @@ a.source[data-signal-icon]::before {
   }
 })();
 </script>
+<!-- v0.7w weather layout correction 2026-11-07: avoid squeezing labels into vertical columns -->
+<style>
+@media(max-width:640px){
+  html.v07n .weather-strip{
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:wrap!important;
+    justify-content:space-between!important;
+    align-items:center!important;
+    gap:6px 8px!important;
+    padding:7px 9px!important;
+    min-width:0!important;
+  }
+  html.v07n .wx-link{
+    grid-area:auto!important;
+    flex:1 1 135px!important;
+    width:auto!important;
+    max-width:100%!important;
+    min-width:0!important;
+    overflow:visible!important;
+  }
+  html.v07n .wx-primary{
+    flex:1 1 auto!important;
+    min-width:0!important;
+    align-items:center!important;
+  }
+  html.v07n .wx-primary-text{
+    overflow:visible!important;
+    min-width:0!important;
+  }
+  html.v07n .wx-primary-text strong{
+    font-size:16px!important;
+    white-space:normal!important;
+    overflow:visible!important;
+    overflow-wrap:anywhere!important;
+    text-overflow:clip!important;
+  }
+  html.v07n .rain-status{
+    grid-area:auto!important;
+    width:auto!important;
+    flex:0 1 auto!important;
+    min-width:0!important;
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:3px!important;
+    flex-wrap:nowrap!important;
+  }
+  html.v07n .rain-label{
+    font-size:14px!important;
+    white-space:nowrap!important;
+    word-break:keep-all!important;
+    overflow:visible!important;
+    min-width:max-content!important;
+    max-width:none!important;
+    padding:4px 5px!important;
+  }
+  html.v07n .rain-details summary{
+    font-size:14px!important;
+    white-space:nowrap!important;
+  }
+  html.v07n .wx-buttons{
+    grid-area:auto!important;
+    display:flex!important;
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:0!important;
+    margin-left:auto!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+  }
+  html.v07n .wx-buttons #refresh{
+    width:50px!important;
+    min-width:50px!important;
+    height:44px!important;
+    min-height:44px!important;
+  }
+}
+</style>
+ 
 </body></html>
 
 
