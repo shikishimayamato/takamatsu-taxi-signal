@@ -431,7 +431,7 @@ a.source[data-ts-mlit]::before {content:"🚧"!important;display:inline-flex;ali
      return Promise.reject(new Error('Open-Meteo free API disabled: commercial-use policy'));
    return originalFetch(input,options);
  };
- const WEATHER_URL='https://takamatsu-weather-proxy.shikishimanippon5.workers.dev/forecast';
+ const WEATHER_URL='https://takamatsu-weather-proxy.shikishimanipponn5.workers.dev/forecast';
  let forecast=null, loadPending=false, shown=false;
  function weatherEmoji(data){
    const code=Number(data.weatherCode);
