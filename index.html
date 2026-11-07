@@ -2159,6 +2159,169 @@ function probability10(value){
   html.v07n .rain-details summary {font-size:12px!important;}
 }
 </style>
+<!-- 2026-11-07 乗務員向けUI：天気配置・施設マーク・情報源マーク・国交省リンク・やさしい日本語 -->
+<style>
+/* 既存の天気情報を変更せず、余白を左右に分散して中央の強雨表示を中心に揃える */
+@media (max-width:640px) {
+  html.v07n .weather-strip {
+    display:grid!important;
+    grid-template-columns:max-content minmax(0,1fr) max-content!important;
+    grid-template-areas:"weather rain actions"!important;
+    align-items:center!important;
+    column-gap:6px!important;
+    row-gap:0!important;
+    padding:7px 8px!important;
+    min-width:0;
+  }
+  html.v07n .wx-link {grid-area:weather;min-width:0!important;width:auto!important;justify-self:start!important}
+  html.v07n .wx-primary {gap:4px;min-width:0}
+  html.v07n .wx-primary-text strong {font-size:16px!important;line-height:1.3;white-space:nowrap}
+  html.v07n .rain-status {
+    grid-area:rain;display:flex!important;width:100%!important;min-width:0!important;
+    justify-content:center!important;align-items:center!important;flex-wrap:nowrap!important;gap:3px!important;
+  }
+  html.v07n .rain-label {
+    font-size:14px!important;line-height:1.3!important;padding:4px 4px!important;
+    max-width:none!important;white-space:normal!important;overflow:visible!important;
+  }
+  html.v07n .rain-details summary {font-size:14px!important}
+  html.v07n .wx-buttons {grid-area:actions;justify-self:end;justify-content:flex-end!important;width:auto!important;min-width:0!important;margin:0!important}
+  html.v07n .wx-buttons #refresh {
+    min-height:44px!important;height:44px!important;width:50px!important;min-width:50px!important;
+    padding:0 4px!important;margin:0!important;
+  }
+  html.v07n .wx-buttons #refresh::after {font-size:14px!important}
+  /* ボタンが隠れていない場合も切れないようにする */
+  html.v07n .wx-buttons #installTop:not([hidden]) {font-size:14px!important}
+}
+@media (max-width:370px) {
+  html.v07n .weather-strip {
+    grid-template-columns:max-content minmax(0,1fr) max-content!important;
+    grid-template-areas:"weather rain actions"!important;
+    column-gap:3px!important;
+  }
+  html.v07n .wx-symbol {font-size:17px!important}
+  html.v07n .wx-primary-text strong {font-size:14px!important}
+  html.v07n .rain-label,html.v07n .rain-details summary {font-size:12px!important}
+  html.v07n .wx-buttons #refresh {width:43px!important;min-width:43px!important}
+}
+/* 施設名の前の「▣」や「⬡」を、会場の種類に合ったマークにする */
+.signal-event .venue-mark[data-signal-icon]::before {
+  content:attr(data-signal-icon)!important;
+  font-size:1.25em!important;color:inherit!important;
+  font-weight:400!important;line-height:1.1;
+  display:inline-block;flex:none;vertical-align:middle;
+}
+/* 情報源ショートカットの「↗」だけを参照先別のマークに変更 */
+a.source[data-signal-icon]::before {
+  content:attr(data-signal-icon)!important;
+  display:inline-flex;justify-content:center;align-items:center;
+  flex:0 0 1.45em;min-width:1.45em;
+  font-size:1.24em!important;color:inherit!important;line-height:1.1;
+}
+@media(max-width:640px){
+  /* イベントの文字サイズは維持。タブ名だけ短くし読みやすく */
+  .tabs .tab {min-width:0;white-space:nowrap}
+  .signal-event .venue-mark {gap:6px}
+}
+</style>
+<script>
+(function(){
+  'use strict';
+  const GOVERNMENT_ROAD_URL='https://www.road-info-prvs.mlit.go.jp/roadinfo/pc/pcTop_00_0.html';
+
+  // 判断を誤らないよう、会場名・種類により施設を分類。見分けがつかない場合は地図ピン。
+  function venueIcon(label){
+    const v=String(label||'').normalize('NFKC');
+    if(/ホテル|旅館|宿泊|クレメント|パールガーデン|リーガ|ロイヤルパーク|東急REI|オークラ/.test(v))return '🏨';
+    if(/あなぶきアリーナ|体育館|スポーツセンター|運動センター|スポーツ施設|アリーナ|武道館/.test(v))return '🏟️';
+    if(/運動公園|運動場|グラウンド|野球場|競技場|陸上競技場|球場/.test(v))return '🏟️';
+    if(/ホール|劇場|文化会館|芸術劇場|文化センター|市民会館/.test(v))return '🏛️';
+    if(/大学|学校|高専|学院|高校|中学校|小学校/.test(v))return '🏫';
+    if(/病院|医療センター|クリニック/.test(v))return '🏥';
+    if(/サンメッセ|コンベンション|会議場|国際会議|展示場|交流センター|市役所|県庁/.test(v))return '🏢';
+    if(/公園|庭園/.test(v))return '🌳';
+    if(/港|フェリー|船着場/.test(v))return '🚢';
+    return '📍';
+  }
+  function sourceIcon(link){
+    const name=link.textContent||'';
+    const url=link.getAttribute('href')||'';
+    if(/jma\.go\.jp|気象庁|雨雲/.test(url+' '+name))return '🌧️';
+    if(/jr-shikoku|kotoden|鉄道|運行情報/.test(url+' '+name))return '🚆';
+    if(/airport|空港|フライト/.test(url+' '+name))return '✈️';
+    if(/kagawa-arena|アリーナ|スポーツ施設|体育館|taka-spo/.test(url+' '+name))return '🏟️';
+    if(/sunport-hall|ホール/.test(url+' '+name))return '🏛️';
+    if(/sunmesse|コンベンション|takamatsu\.or\.jp/.test(url+' '+name))return '🏢';
+    if(/cruise|港|船/.test(url+' '+name))return '🚢';
+    if(/jartic|jb-honshi|高速道路/.test(url+' '+name))return '🛣️';
+    if(/road-info|mlit\.go\.jp|道路|通行止め|通行規制/i.test(url+' '+name))return '🚧';
+    if(/city\.takamatsu|pref\.kagawa|香川県|高松市/.test(url+' '+name))return '🏛️';
+    if(/calendar|event|イベント/.test(url+' '+name))return '📅';
+    return '🔗';
+  }
+  function setIcons(container){
+    if(!container)return;
+    container.querySelectorAll('.signal-event .venue-mark').forEach(function(el){
+      const icon=venueIcon(el.textContent);
+      if(el.getAttribute('data-signal-icon')!==icon)el.setAttribute('data-signal-icon',icon);
+    });
+    container.querySelectorAll('a.source').forEach(function(el){
+      const href=el.getAttribute('href')||'';
+      if(/road-info-prvs\.mlit\.go\.jp\/roadinfo\/sp\/spTop_00_0\.html/i.test(href)){
+        el.setAttribute('href',GOVERNMENT_ROAD_URL);
+      }
+      const icon=sourceIcon(el);
+      if(el.getAttribute('data-signal-icon')!==icon)el.setAttribute('data-signal-icon',icon);
+    });
+  }
+  // 表示テキストだけを変更。イベント名・施設名・保存データ・プログラム内部の識別子は変更しない。
+  function easyLabels(root){
+    if(!root)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    let node;
+    while((node=walker.nextNode())){
+      const parent=node.parentElement;
+      if(!parent || parent.closest('script,style,.event-title-strong,.convention-name,.venue-mark,.source .name'))continue;
+      let old=node.nodeValue;
+      let next=old.replace(/催事/g,'イベント')
+        .replace(/開始時刻未公表/g,'開始時刻は不明')
+        .replace(/終了時刻未公表/g,'終了時刻は不明');
+      if(next!==old)node.nodeValue=next;
+    }
+  }
+  function tidy(){
+    const main=document.querySelector('main');
+    if(main){setIcons(main);easyLabels(main);}
+    const dlg=document.getElementById('editorDlg');
+    if(dlg)easyLabels(dlg);
+    const tab=document.querySelector('.tab[data-tab="events"]');
+    if(tab && /催事|イベント・登録/.test(tab.textContent))tab.textContent='▦ イベント';
+    // 一時的な「強雨なし」は、元の危険判定を変えずに短く表示する。
+    const alert=document.getElementById('rainAlert');
+    if(alert && alert.textContent.trim()==='強雨検出なし')alert.textContent='強雨なし';
+  }
+  tidy();
+  // 催事リストは非同期で再描画されるため、新たに表示されたカードにも反映。
+  ['focusCards','autoEventList','convList','sourceQuick','sourceAll'].forEach(function(id){
+    const root=document.getElementById(id);
+    if(!root)return;
+    const observer=new MutationObserver(function(mutations){
+      if(!mutations.some(function(m){return m.addedNodes.length>0 || m.removedNodes.length>0}))return;
+      setIcons(root);
+      easyLabels(root);
+    });
+    observer.observe(root,{childList:true,subtree:true});
+  });
+  // 強雨表示だけは状況更新のたびに変わるので、表示文言を必要時に調整する。
+  const alert=document.getElementById('rainAlert');
+  if(alert){
+    new MutationObserver(function(){
+      if(alert.textContent.trim()==='強雨検出なし')alert.textContent='強雨なし';
+    }).observe(alert,{childList:true,characterData:true,subtree:true});
+  }
+})();
+</script>
 </body></html>
 
 
