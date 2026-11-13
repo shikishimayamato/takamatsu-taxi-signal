@@ -26,6 +26,8 @@ OUTPUT = ROOT / 'data' / 'events.json'
 PRIMARY = 'https://www.sunmesse.com/'
 # 2026-11時点、公式サイトと同じ内容を掲載しているサブドメイン。TLS失敗時に限り利用。
 TLS_FALLBACK = 'https://pop.sunmesse.com/'
+TLS_FALLBACK_2 = 'https://ftp.sunmesse.com/'
+OFFICIAL_HOSTS = (PRIMARY, TLS_FALLBACK, TLS_FALLBACK_2)
 PUBLISHED = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 VENUE = 'サンメッセ香川'
 AGENT = 'TakamatsuTaxiSignal/1.1 (+official event metadata; twice-daily fetch)'
@@ -185,34 +187,64 @@ def download_month(session: requests.Session, origin: str, now: datetime, offset
     return parse_page(r.text,url,now),url
 
 
+def tls_summary(exc: BaseException) -> str:
+    """ログに機密値を出さず、SSL検証失敗の種類だけを表示する。"""
+    msg = str(exc)
+    candidates = (
+        'unable to get local issuer certificate',
+        'certificate has expired',
+        'self-signed certificate',
+        'self signed certificate',
+        'hostname mismatch',
+        'certificate verify failed',
+        'CERTIFICATE_VERIFY_FAILED',
+        'TLSV1_ALERT',
+        'SSLV3_ALERT',
+        'WRONG_VERSION_NUMBER',
+    )
+    lower = msg.casefold()
+    for marker in candidates:
+        if marker.casefold() in lower:
+            return marker
+    return type(exc).__name__ + '（詳細不明）'
+
+
 def fetch_events(now: datetime) -> tuple[list[dict],list[str]]:
+    """公式HTTPSのSSL検証を維持したまま、同じ施設の別ホストを試す。"""
     session = requests.Session()
-    session.headers.update({'User-Agent':AGENT,'Accept-Language':'ja-JP,ja;q=0.9'})
-    all_events = []
-    failures = []
+    session.headers.update({'User-Agent': AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
+    all_events: list[dict] = []
+    failures: list[str] = []
     selected_origin = PRIMARY
     for month in range(3):
-        try:
-            events,url = download_month(session, selected_origin, now, month)
-        except requests.exceptions.SSLError as exc:
-            if selected_origin != PRIMARY:
-                failures.append(f'{month}: TLS ({type(exc).__name__})')
-                continue
-            # SSL検証を外さず、同じ運営の公式サブドメインを使う。
+        # 先月成功したホストを先に確認。SSL検証失敗に限り他の公式ホストも試す。
+        candidates = [selected_origin] + [host for host in OFFICIAL_HOSTS if host != selected_origin]
+        month_errors: list[str] = []
+        successful = False
+        for origin in candidates:
             try:
-                events,url = download_month(session, TLS_FALLBACK, now, month)
-                selected_origin = TLS_FALLBACK
-            except Exception as backup_exc:
-                failures.append(f'{month}: main TLS / backup {type(backup_exc).__name__}')
+                events, url = download_month(session, origin, now, month)
+                selected_origin = origin
+                all_events.extend(events)
+                print(f'サンメッセ：{url} → {len(events)}件')
+                successful = True
+                break
+            except requests.exceptions.SSLError as exc:
+                reason = tls_summary(exc)
+                month_errors.append(f'{urlparse(origin).hostname}: SSL検証失敗({reason})')
+                print(f'サンメッセTLS診断 [{month}か月後] {urlparse(origin).hostname}: {reason}', file=sys.stderr)
+                # SSL検証をオフにせず、別の公式ホストで検証を続ける。
                 continue
-        except Exception as exc:
-            failures.append(f'{month}: {type(exc).__name__}')
-            continue
-        all_events.extend(events)
-        print(f'サンメッセ：{url} → {len(events)}件')
+            except Exception as exc:
+                # robotsの拒否、HTTP 403/429/5xx、抽出バグでは迂回しない。
+                month_errors.append(f'{urlparse(origin).hostname}: {type(exc).__name__}')
+                print(f'サンメッセ取得停止 [{month}か月後] {urlparse(origin).hostname}: {type(exc).__name__}', file=sys.stderr)
+                break
+        if not successful:
+            failures.append(f'{month}: ' + ', '.join(month_errors))
     unique = {r['id']:r for r in all_events}
     if not unique:
-        raise ValueError('公式ページから将来催事を抽出できませんでした。'+', '.join(failures))
+        raise ValueError('公式ページから将来催事を抽出できませんでした。' + ', '.join(failures))
     return sorted(unique.values(), key=lambda x:(x['date'],x['title'])), failures
 
 
