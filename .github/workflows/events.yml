@@ -56,6 +56,8 @@ jobs:
         run: python scripts/fetch_kinbuchi_park.py
       - name: 香川県立図書館の公式行事を取得して統合
         run: python scripts/fetch_kagawa_library.py
+      - name: 屋島レクザムフィールドの公式競技日程を取得して統合
+        run: python scripts/fetch_yashima_field.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
