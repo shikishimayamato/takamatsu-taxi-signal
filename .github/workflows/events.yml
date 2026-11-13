@@ -34,6 +34,8 @@ jobs:
         run: python scripts/fetch_yashimaru.py
       - name: 香川県立総合水泳プールの競技会日程を取得して統合
         run: python scripts/fetch_swim_meets.py
+      - name: 穴吹学園ホールの一般公開催事を取得して統合
+        run: python scripts/fetch_anabuki_hall.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
