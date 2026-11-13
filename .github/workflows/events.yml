@@ -36,6 +36,8 @@ jobs:
         run: python scripts/fetch_swim_meets.py
       - name: 穴吹学園ホールの一般公開催事を取得して統合
         run: python scripts/fetch_anabuki_hall.py
+      - name: festhalle（フェストハレ）の公式公演を取得して統合
+        run: python scripts/fetch_festhalle.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
