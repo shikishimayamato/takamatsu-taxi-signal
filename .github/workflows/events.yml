@@ -44,6 +44,8 @@ jobs:
         run: python scripts/fetch_olive_hall.py
       - name: 香川県文化会館の公式催物を取得して統合
         run: python scripts/fetch_kagawa_bunkakaikan.py
+      - name: 高松市美術館の公式展覧会を取得して統合
+        run: python scripts/fetch_takamatsu_art_museum.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
