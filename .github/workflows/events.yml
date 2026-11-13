@@ -30,6 +30,8 @@ jobs:
         run: python scripts/fetch_sunmesse.py
       - name: 高松国分寺ホールの一般公開催事を取得して統合
         run: python scripts/fetch_kokubunji.py
+      - name: やしまーる・屋島山上の一般公開催事を取得して統合
+        run: python scripts/fetch_yashimaru.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
@@ -51,11 +53,9 @@ jobs:
           <meta name="robots" content="noindex,nofollow">
           <title>旧公開版は終了しました | 高松タクシー・シグナル</title>
           <style>
-          :root{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#18364a;background:#f2f6f9}*{box-sizing:border-box}body{margin:0;padding:24px}main{margin:10vh auto 0;max-width:650px;padding:28px;background:white;border:1px solid #b4ccd8;border-radius:19px}h1{font-size:clamp(23px,5vw,31px);line-height:1.45}p{font-size:17px;line-height:1.85}a{display:inline-block;padding:14px 18px;background:#096d81;color:white;border-radius:12px;text-decoration:none;font-size:17px;font-weight:700}
-          </style>
+          :root{font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#18364a;background:#f2f6f9}*{box-sizing:border-box}body{margin:0;padding:24px}main{margin:10vh auto 0;max-width:650px;padding:28px;background:white;border:1px solid #b4ccd8;border-radius:19px}h1{font-size:clamp(23px,5vw,31px);line-height:1.45}p{font-size:17px;line-height:1.85}a{display:inline-block;padding:14px 18px;background:#096d81;color:white;border-radius:12px;text-decoration:none;font-size:17px;font-weight:700}</style>
           </head>
-          <body>
-          <main>
+          <body><main>
           <h1>旧公開版は終了しました</h1>
           <p>高松タクシー・シグナルの旧公開版アプリは提供を終了しました。新しい商用版はLINE会員ログインからご利用ください。</p>
           <p><a href="https://takamatsu-taxi-commercial.shikishimanipponn5.workers.dev/member">商用版・LINE会員ログイン</a></p>
