@@ -30,6 +30,9 @@ EXCLUDE = re.compile(r'キャンペーン|抽選会|プレゼント|貸切|福�
 DATE = re.compile(r'(20\d{2})\.(\d{1,2})\.(\d{1,2})~(?:(20\d{2})\.)?(\d{1,2})\.(\d{1,2})')
 CLOCK = r'((?:[01]?\d|2[0-3]))(?:[:：]([0-5]\d)|時(?:([0-5]?\d)分)?)'
 SESSION = re.compile(CLOCK + r'\s*[~〜～]\s*(?:' + CLOCK + r')?')
+GENERIC = re.compile(r'(?:\d{1,2}/\d{1,2}(?:\([月火水木金土日]\))?\s*)?(?:イベント|催事)(?:の)?お知らせ')
+# 名称が公式チラシ画像にのみ掲載されている催事。
+VERIFIED_TITLES = {'20261030-612348': '名探偵プリキュア！ショー'}
 
 
 def norm(value: str) -> str:
@@ -133,6 +136,8 @@ def fetch(session: requests.Session, today: date) -> list[dict]:
         detail = html(path)
         if not detail.select_one('article h1'):
             raise ValueError('公式催事詳細の見出しを確認できません')
+        if GENERIC.fullmatch(norm(title)):
+            title = VERIFIED_TITLES.get(path.rsplit('/', 1)[-1], '催事名未掲載（公式詳細参照）')
         slots = sessions(detail, dates)
         day = max(dates[0], today)
         post_id = path.rsplit('-', 1)[-1]
