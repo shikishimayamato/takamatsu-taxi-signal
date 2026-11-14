@@ -72,6 +72,8 @@ jobs:
         run: python scripts/fetch_sanuki_airport_park.py
       - name: 高松市石の民俗資料館の公式催事を取得して統合
         run: python scripts/fetch_takamatsu_stone_museum.py
+      - name: 瀬戸内海歴史民俗資料館の公式催事を取得して統合
+        run: python scripts/fetch_setouchi_history_museum.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
