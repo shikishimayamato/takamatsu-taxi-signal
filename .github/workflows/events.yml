@@ -90,6 +90,8 @@ jobs:
         run: python scripts/fetch_shippo_no_mori.py
       - name: 香川県営第2サッカー・ラグビー場の公式大会日程を取得して統合
         run: python scripts/fetch_ikushima_football2.py
+      - name: 香南歴史民俗郷土館の公式催事を取得して統合
+        run: python scripts/fetch_konan_history.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
