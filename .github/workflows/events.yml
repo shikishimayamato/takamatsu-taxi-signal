@@ -94,6 +94,8 @@ jobs:
         run: python scripts/fetch_konan_history.py
       - name: 讃岐国分寺跡資料館の公式催事を取得して統合
         run: python scripts/fetch_sanuki_kokubunji_museum.py
+      - name: 丸亀町グリーン けやき広場の公式催事を取得して統合
+        run: python scripts/fetch_mgreen_keyaki.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
