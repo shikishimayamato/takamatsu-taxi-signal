@@ -66,6 +66,8 @@ jobs:
         run: python scripts/fetch_flat_busshozan.py
       - name: 栗林公園の公式催事を取得して統合
         run: python scripts/fetch_ritsurin_garden.py
+      - name: 高松市塩江美術館の公式催事を取得して統合
+        run: python scripts/fetch_shionoe_museum.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
