@@ -15,7 +15,7 @@ from urllib.robotparser import RobotFileParser
 from calendar import monthrange
 from urllib.parse import urljoin
 
-import fitz
+import pymupdf
 import requests
 from bs4 import BeautifulSoup
 from fetch_kagawa_bunkakaikan import get
@@ -41,7 +41,7 @@ def norm(text: str) -> str:
 def parse_pdf(body: bytes, fiscal: int, url: str, today: date) -> list[dict]:
     rows = []
     seen_months = set()
-    with fitz.open(stream=body, filetype='pdf') as doc:
+    with pymupdf.open(stream=body, filetype='pdf') as doc:
         if len(doc) > 12:
             raise ValueError('年間予定表のページ数を確認してください')
         for page in doc:
@@ -58,7 +58,14 @@ def parse_pdf(body: bytes, fiscal: int, url: str, today: date) -> list[dict]:
             seen_months.add(first)
             if last < today or first > today + timedelta(days=120):
                 continue
-            for table in page.find_tables().tables:
+            # 2.xの自動レイアウト判定は、このPDFの罫線表を見落とす。
+            try:
+                tables = page.find_tables(use_layout=False).tables
+            except TypeError as exc:
+                if 'use_layout' not in str(exc):
+                    raise
+                tables = page.find_tables().tables
+            for table in tables:
                 cells = table.extract()
                 if cells and len(cells[0]) > 3 and norm(cells[0][2] or '') == '県営野球場':
                     break
