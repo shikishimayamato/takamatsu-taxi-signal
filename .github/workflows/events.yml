@@ -78,6 +78,8 @@ jobs:
         run: python scripts/fetch_symboltower_exhibition.py
       - name: 香川県立ミュージアムの公式催事を取得して統合
         run: python scripts/fetch_kagawa_museum.py
+      - name: 四国村ミウゼアムの公式催事を取得して統合
+        run: python scripts/fetch_shikokumura.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
