@@ -102,8 +102,6 @@ jobs:
         run: python scripts/fetch_kagawa_budokan.py
       - name: 八栗寺の公式行事を取得して統合
         run: python scripts/fetch_yakuriji.py
-      - name: イオンシネマ高松東の公式特別上映を取得して統合
-        run: python scripts/fetch_aeon_cinema_takamatsu.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
