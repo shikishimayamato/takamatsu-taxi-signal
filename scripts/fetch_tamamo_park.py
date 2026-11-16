@@ -19,8 +19,9 @@ from bs4 import BeautifulSoup
 from fetch_kagawa_bunkakaikan import get
 
 ORIGIN = 'http://www.takamatsujyo.com'
-SCHEDULE = ORIGIN + '/yotei.htm'
-OFFICIAL_ORIGINS = ('http://takamatsujyo.com', ORIGIN)
+SCHEDULE_PATHS = ('/event2025newpage.html', '/yotei.htm')
+SCHEDULE = ORIGIN + SCHEDULE_PATHS[0]
+OFFICIAL_ORIGINS = (ORIGIN, 'http://takamatsujyo.com')
 CITY = 'https://www.city.takamatsu.kagawa.jp'
 CHRYSANTHEMUM = CITY + '/kurashi/kurashi/shisetsu/park/tamamo/kikkaten.html'
 PUBLISHED = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
@@ -118,20 +119,26 @@ def check_robots(body: bytes | None, url: str) -> None:
         raise PermissionError(f'robots.txtが取得を拒否: {url}')
 
 
-def fetch(session: requests.Session, today: date) -> list[dict]:
+def fetch(today: date) -> list[dict]:
     failures = []
     for origin in OFFICIAL_ORIGINS:
-        schedule = origin + '/yotei.htm'
         try:
-            check_robots(read_official(origin + '/robots.txt', 500_000, missing_ok=True), schedule)
-            rows = parse_schedule(read_official(schedule, 1_000_000), today)
-        except (ValueError, PermissionError) as exc:
+            robots = read_official(origin + '/robots.txt', 500_000, missing_ok=True)
+        except ValueError as exc:
             failures.append(str(exc))
             continue
-        for row in rows:
-            row['url'] = schedule
-        print(f'玉藻公園の年間予定表取得成功: {schedule}')
-        return rows
+        for path in SCHEDULE_PATHS:
+            schedule = origin + path
+            try:
+                check_robots(robots, schedule)
+                rows = parse_schedule(read_official(schedule, 1_000_000), today)
+            except (ValueError, PermissionError) as exc:
+                failures.append(f'{schedule}: {exc}')
+                continue
+            for row in rows:
+                row['url'] = schedule
+            print(f'玉藻公園の年間予定表取得成功: {schedule}')
+            return rows
     raise ValueError('年間予定表を取得できません: ' + ' / '.join(failures))
 
 
@@ -221,7 +228,7 @@ def main() -> int:
         with requests.Session() as session:
             session.headers.update({'User-Agent': AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
             try:
-                rows = fetch(session, now.date())
+                rows = fetch(now.date())
                 status = 'ok'
             except (requests.RequestException, ValueError, PermissionError) as exc:
                 print(f'{VENUE}取得警告: {exc}', file=sys.stderr)
