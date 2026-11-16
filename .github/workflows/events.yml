@@ -106,6 +106,8 @@ jobs:
         run: python scripts/fetch_rexam.py
       - name: 香川県の公式PDFから高松港クルーズ船寄港予定を取得
         run: python scripts/fetch_cruise.py
+      - name: 玉藻公園の公式催事を取得して統合
+        run: python scripts/fetch_tamamo_park.py
       - name: 公開するファイルをデータと終了案内だけに限定
         run: |
           mkdir -p _site/data
