@@ -104,6 +104,8 @@ jobs:
         run: python scripts/fetch_yakuriji.py
       - name: ラウンドワン高松店の公式競技会を取得して統合
         run: python scripts/fetch_round1_takamatsu.py
+      - name: ホテルパールガーデンの公式公演を取得して統合
+        run: python scripts/fetch_pearlgarden.py
       - name: コンベンションカレンダーの公開催事を取得
         run: python scripts/fetch_conventions.py
       - name: 高松市総合体育館の公式月間PDFから催事を取得
