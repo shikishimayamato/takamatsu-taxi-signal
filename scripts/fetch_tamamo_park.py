@@ -20,6 +20,9 @@ from fetch_kagawa_bunkakaikan import get
 
 ORIGIN = 'http://www.takamatsujyo.com'
 SCHEDULE = ORIGIN + '/yotei.htm'
+OFFICIAL_ORIGINS = ('http://takamatsujyo.com', ORIGIN)
+CITY = 'https://www.city.takamatsu.kagawa.jp'
+CHRYSANTHEMUM = CITY + '/kurashi/kurashi/shisetsu/park/tamamo/kikkaten.html'
 PUBLISHED = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
 OUTPUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
 VENUE = '玉藻公園'
@@ -85,12 +88,16 @@ def parse_schedule(body: bytes, today: date) -> list[dict]:
 def read_official(url: str, limit: int, *, missing_ok: bool = False) -> bytes | None:
     try:
         response = subprocess.run(
-            ['curl', '--silent', '--show-error', '--max-time', '12', '--max-filesize',
+            ['curl', '--silent', '--show-error', '--connect-timeout', '6', '--max-time', '12',
+             '--retry', '1', '--retry-delay', '1', '--retry-max-time', '15', '--max-filesize',
              str(limit), '--user-agent', AGENT, '--write-out', '%{http_code}', url],
-            capture_output=True, check=True, timeout=15,
+            capture_output=True, check=True, timeout=27,
         ).stdout
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ValueError(f'玉藻公園の公式サイトに接続できません: {url}') from exc
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.decode('utf-8', errors='replace').strip()
+        raise ValueError(f'公式サイト取得失敗: {url} (curl {exc.returncode}: {detail})') from exc
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ValueError(f'公式サイト取得失敗: {url} ({type(exc).__name__})') from exc
     body, status = response[:-3], response[-3:]
     if status == b'404' and missing_ok:
         return None
@@ -99,8 +106,7 @@ def read_official(url: str, limit: int, *, missing_ok: bool = False) -> bytes | 
     return body
 
 
-def fetch(session: requests.Session, today: date) -> list[dict]:
-    body = read_official(ORIGIN + '/robots.txt', 500_000, missing_ok=True)
+def check_robots(body: bytes | None, url: str) -> None:
     lines = body.decode('utf-8-sig').splitlines() if body is not None else []
     for line in lines:
         field, _, value = line.partition('#')[0].partition(':')
@@ -108,9 +114,59 @@ def fetch(session: requests.Session, today: date) -> list[dict]:
             raise PermissionError('robots.txtのパターン規則を要確認')
     parser = RobotFileParser()
     parser.parse(lines)
-    if not parser.can_fetch(AGENT, SCHEDULE):
-        raise PermissionError('robots.txtが年間行事予定表の取得を拒否')
-    return parse_schedule(read_official(SCHEDULE, 1_000_000), today)
+    if not parser.can_fetch(AGENT, url):
+        raise PermissionError(f'robots.txtが取得を拒否: {url}')
+
+
+def fetch(session: requests.Session, today: date) -> list[dict]:
+    failures = []
+    for origin in OFFICIAL_ORIGINS:
+        schedule = origin + '/yotei.htm'
+        try:
+            check_robots(read_official(origin + '/robots.txt', 500_000, missing_ok=True), schedule)
+            rows = parse_schedule(read_official(schedule, 1_000_000), today)
+        except (ValueError, PermissionError) as exc:
+            failures.append(str(exc))
+            continue
+        for row in rows:
+            row['url'] = schedule
+        print(f'玉藻公園の年間予定表取得成功: {schedule}')
+        return rows
+    raise ValueError('年間予定表を取得できません: ' + ' / '.join(failures))
+
+
+def fetch_city_chrysanthemum(session: requests.Session, today: date) -> list[dict]:
+    check_robots(get(session, CITY + '/robots.txt', 500_000, missing_ok=True), CHRYSANTHEMUM)
+    soup = BeautifulSoup(get(session, CHRYSANTHEMUM, 1_000_000), 'html.parser')
+    heading = soup.find('h1')
+    title_match = re.fullmatch(r'玉藻公園『(第\d+回高松市菊花展競技会)』', norm(heading.get_text()) if heading else '')
+    sections = {}
+    for heading in soup.select('.h3bg'):
+        content = heading.find_next_sibling()
+        if content:
+            sections[norm(heading.get_text())] = norm(content.get_text())
+    period = re.sub(r'\([^)]*曜日\)', '', sections.get('期間', ''))
+    dates = re.fullmatch(r'令和(\d+)年(\d+)月(\d+)日[~～〜](\d+)月(\d+)日午前(\d+)時(?:(\d+)分)?[~～〜]午後(\d+)時(?:(\d+)分)?', period)
+    if not title_match or not dates or sections.get('場所') != '高松市立玉藻公園内':
+        raise ValueError('市の玉藻公園ページで菊花展の日程を確認できません')
+    era, month, day, end_month, end_day, am, am_min, pm, pm_min = (int(p or '0') for p in dates.groups())
+    start = date(2018 + era, month, day)
+    end = date(start.year, end_month, end_day)
+    start_time = datetime(start.year, month, day, am % 12, am_min).strftime('%H:%M')
+    end_time = datetime(end.year, end_month, end_day, pm % 12 + 12, pm_min).strftime('%H:%M')
+    if end < start or not 1 <= am <= 12 or not 1 <= pm <= 12:
+        raise ValueError('菊花展の開催日または時刻を確認してください')
+    if end < today:
+        return []
+    title = title_match[1]
+    ds = start.isoformat()
+    key = hashlib.sha256(f'{ds}|{norm(title)}'.encode()).hexdigest()[:16]
+    return [{
+        'id': PREFIX + key, 'date': ds, 'endDate': end.isoformat(), 'title': title,
+        'venue': VENUE, 'venueArea': '玉藻町', 'zone': 'station', 'source': SOURCE,
+        'url': CHRYSANTHEMUM, 'doorAt': None, 'startAt': start_time, 'endAt': end_time,
+        'endTimeType': 'official', 'note': '高松市の玉藻公園ページに掲載された菊花展の開催日程。',
+    }]
 
 
 def owned(event: dict) -> bool:
@@ -173,6 +229,15 @@ def main() -> int:
                 if not rows:
                     rows, last_success = previous_rows(session, now)
                 status = 'stale' if rows else 'error'
+                try:
+                    supplementary = fetch_city_chrysanthemum(session, now.date())
+                    if supplementary:
+                        by_id = {row['id']: row for row in rows}
+                        by_id.update((row['id'], row) for row in supplementary)
+                        rows = list(by_id.values())
+                        status = 'partial'
+                except (requests.RequestException, ValueError, PermissionError) as fallback_exc:
+                    print(f'{VENUE}の市公式案内を取得できません: {fallback_exc}', file=sys.stderr)
         result = merge(payload, rows, status, now, last_success)
         temporary = None
         try:
