@@ -93,7 +93,9 @@ def parse_html(html: str, now: datetime) -> list[dict]:
             if len(cells) < 4:
                 continue
             ds = get_date(cells[0].get_text(" ", strip=True))
-            if not ds or not (now.date()-timedelta(days=1) <= ds <= now.date()+timedelta(days=120)):
+            if not ds or not (
+                now.date() - timedelta(days=1) <= ds <= now.date() + timedelta(days=120)
+            ):
                 continue
             title = clean(cells[1].get_text(" ", strip=True))
             if not (2 <= len(title) <= 120) or SKIP_TITLE.search(title):
@@ -110,13 +112,20 @@ def parse_html(html: str, now: datetime) -> list[dict]:
             day = ds.isoformat()
             fields = time_fields(hours, day)
             ev = {
-                "id": event_id(title, day), "title": title, "date": day,
-                "venue": VENUE, "venueArea": "国分寺町新名", "zone": "other",
-                "source": SOURCE, "url": url,
-                "doorAt": fields["doorAt"], "startAt": fields["startAt"],
+                "id": event_id(title, day),
+                "title": title,
+                "date": day,
+                "venue": VENUE,
+                "venueArea": "国分寺町新名",
+                "zone": "other",
+                "source": SOURCE,
+                "url": url,
+                "doorAt": fields["doorAt"],
+                "startAt": fields["startAt"],
                 "endAt": fields["endAt"],
                 "endTimeType": "公式掲載の開催終了時間" if fields["endAt"] else None,
-                "note": "ホールの一般公開催事。" + ("終了時刻は公式掲載の開催時間。" if fields["endAt"] else "終演時刻は未確認。"),
+                "note": "ホールの一般公開催事。"
+                + ("終了時刻は公式掲載の開催時間。" if fields["endAt"] else "終演時刻は未確認。"),
             }
             out.setdefault(ev["id"], ev)
     return sorted(out.values(), key=lambda x: (x["date"], x["title"]))
@@ -127,17 +136,18 @@ def official_html() -> str:
     session.headers.update({"User-Agent": AGENT, "Accept-Language": "ja-JP,ja;q=0.9"})
     parsed = urlparse(LIST_URL)
     robot_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
-    r = session.get(robot_url, timeout=(10,15))
+    r = session.get(robot_url, timeout=(10, 15))
     if r.status_code == 404:
         rules = []
     elif r.status_code == 200 and len(r.content) <= 500_000:
         rules = r.text.splitlines()
     else:
         raise PermissionError(f"robots.txtの確認ができません: HTTP {r.status_code}")
-    robot = RobotFileParser(); robot.parse(rules)
+    robot = RobotFileParser()
+    robot.parse(rules)
     if not robot.can_fetch(AGENT, LIST_URL):
         raise PermissionError("robots.txtが公式催事ページの取得を許可していません")
-    res = session.get(LIST_URL, timeout=(10,25))
+    res = session.get(LIST_URL, timeout=(10, 25))
     res.raise_for_status()
     if not allowed_detail_url(res.url):
         raise ValueError("別ドメインへのリダイレクトを検出")
@@ -145,24 +155,40 @@ def official_html() -> str:
         raise ValueError("公式ページが2MB超")
     if "html" not in res.headers.get("Content-Type", "").lower():
         raise ValueError("公式ページがHTMLではありません")
-    res.encoding = res.apparent_encoding if not re.search(r"charset\s*=", res.headers.get("Content-Type", ""), re.I) else res.encoding
+    res.encoding = (
+        res.apparent_encoding
+        if not re.search(r"charset\s*=", res.headers.get("Content-Type", ""), re.I)
+        else res.encoding
+    )
     return res.text
 
 
 def previous_events(now: datetime) -> list[dict]:
     """サイトが一時的に使えないとき、7日以内の以前の公開記録だけ保持。"""
     try:
-        r = requests.get(PUBLISHED, params={"v": now.strftime("%Y%m%d%H%M")},
-                         headers={"User-Agent":AGENT},timeout=(8,12))
+        r = requests.get(
+            PUBLISHED,
+            params={"v": now.strftime("%Y%m%d%H%M")},
+            headers={"User-Agent": AGENT},
+            timeout=(8, 12),
+        )
         r.raise_for_status()
-        if len(r.content) > 1_500_000: return []
+        if len(r.content) > 1_500_000:
+            return []
         old = r.json()
         timestamp = datetime.fromisoformat(old["updatedAt"])
-        if timestamp.tzinfo is None: timestamp=timestamp.replace(tzinfo=JST)
-        if not (timedelta(0) <= now-timestamp < timedelta(days=7)): return []
-        return [e for e in old.get("events",[]) if e.get("venue")==VENUE and e.get("date", "") >= (now.date()-timedelta(days=1)).isoformat()]
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=JST)
+        if not (timedelta(0) <= now - timestamp < timedelta(days=7)):
+            return []
+        return [
+            e
+            for e in old.get("events", [])
+            if e.get("venue") == VENUE
+            and e.get("date", "") >= (now.date() - timedelta(days=1)).isoformat()
+        ]
     except Exception as exc:
-        print("国分寺ホールの過去データ取得不可: "+type(exc).__name__,file=sys.stderr)
+        print("国分寺ホールの過去データ取得不可: " + type(exc).__name__, file=sys.stderr)
         return []
 
 
@@ -172,35 +198,48 @@ def merge(payload: dict, events: list[dict], status: str, now: datetime) -> dict
     copied = dict(payload)
     copied["events"] = sorted(
         [e for e in copied["events"] if e.get("venue") != VENUE] + events,
-        key=lambda e:(e.get("date", ""), e.get("venue", ""), e.get("title", ""))
+        key=lambda e: (e.get("date", ""), e.get("venue", ""), e.get("title", "")),
     )
-    sources = [s for s in copied.get("sources", []) if isinstance(s,dict) and s.get("venue")!=VENUE]
-    sources.append({"venue":VENUE,"status":status,"count":len(events),"checkedAt":now.isoformat(timespec="seconds")})
+    sources = [
+        s for s in copied.get("sources", []) if isinstance(s, dict) and s.get("venue") != VENUE
+    ]
+    sources.append(
+        {
+            "venue": VENUE,
+            "status": status,
+            "count": len(events),
+            "checkedAt": now.isoformat(timespec="seconds"),
+        }
+    )
     copied["sources"] = sources
-    copied["partial"] = any(s.get("status") in {"error","partial","stale"} for s in sources)
+    copied["partial"] = any(s.get("status") in {"error", "partial", "stale"} for s in sources)
     if events and VENUE not in copied.get("sourceName", ""):
-        copied["sourceName"] = str(copied.get("sourceName", "複数公式サイト"))+"・"+VENUE
+        copied["sourceName"] = str(copied.get("sourceName", "複数公式サイト")) + "・" + VENUE
     return copied
 
 
 def main() -> int:
     now = datetime.now(JST)
     if not OUTPUT.exists():
-        print("先にscripts/fetch_events.pyを実行してください。",file=sys.stderr)
+        print("先にscripts/fetch_events.pyを実行してください。", file=sys.stderr)
         return 1
     payload = json.loads(OUTPUT.read_text(encoding="utf-8"))
     try:
-        events = parse_html(official_html(),now)
+        events = parse_html(official_html(), now)
         if not events:
             raise RuntimeError("公式の一覧表から将来催事を抽出できません。サイト構造を要確認")
         status = "ok"
     except Exception as exc:
-        print("国分寺ホール取得失敗: "+type(exc).__name__+": "+str(exc)[:250],file=sys.stderr)
+        print(
+            "国分寺ホール取得失敗: " + type(exc).__name__ + ": " + str(exc)[:250], file=sys.stderr
+        )
         events = previous_events(now)
         status = "stale" if events else "error"
-    merged = merge(payload,events,status,now)
-    OUTPUT.write_text(json.dumps(merged,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-    print(f"国分寺ホール統合完了: {len(events)}件 / {status} / 全施設合計 {len(merged['events'])}件")
+    merged = merge(payload, events, status, now)
+    OUTPUT.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(
+        f"国分寺ホール統合完了: {len(events)}件 / {status} / 全施設合計 {len(merged['events'])}件"
+    )
     # 他施設の更新は成功させる。国分寺の取得失敗はログとsourcesに記録。
     return 0
 

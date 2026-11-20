@@ -22,35 +22,39 @@ from zoneinfo import ZoneInfo
 import requests
 from bs4 import BeautifulSoup
 
-JST = ZoneInfo('Asia/Tokyo')
-ARENA = 'https://kagawa-arena.com/'
-SUNMESSE = 'https://www.sunmesse.com/'
-SUNPORT = 'https://www.sunport-hall.jp/'
+JST = ZoneInfo("Asia/Tokyo")
+ARENA = "https://kagawa-arena.com/"
+SUNMESSE = "https://www.sunmesse.com/"
+SUNPORT = "https://www.sunport-hall.jp/"
 # 公式施設サイトの同一内容を公開しているサブドメイン。
 # TLS 証明書エラーの場合のみ次のホストを試す。各ホストのrobots.txtは個別に検証する。
-SUNMESSE_HOSTS = (SUNMESSE, 'https://pop.sunmesse.com/', 'https://ftp.sunmesse.com/')
-SOURCES = {'arena': ARENA, 'sunport': SUNPORT} # サンメッセは調査中につき停止
+SUNMESSE_HOSTS = (SUNMESSE, "https://pop.sunmesse.com/", "https://ftp.sunmesse.com/")
+SOURCES = {"arena": ARENA, "sunport": SUNPORT}  # サンメッセは調査中につき停止
 ALLOWED_ORIGINS = frozenset((ARENA, SUNPORT) + SUNMESSE_HOSTS)
+
 
 class TLSVerifyError(RuntimeError):
     """HTTPS 証明書の検証に失敗。アクセス拒否/robotsの拒否とは区別する。"""
+
     pass
-PUBLIC_BACKUP = 'https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json'
-OUT = Path(__file__).resolve().parents[1] / 'data' / 'events.json'
-USER_AGENT = 'TakamatsuTaxiSignal/0.5.1 (+public source attribution; twice-daily metadata fetch)'
+
+
+PUBLIC_BACKUP = "https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json"
+OUT = Path(__file__).resolve().parents[1] / "data" / "events.json"
+USER_AGENT = "TakamatsuTaxiSignal/0.5.1 (+public source attribution; twice-daily metadata fetch)"
 SESSION = requests.Session()
-SESSION.headers.update({'User-Agent': USER_AGENT, 'Accept-Language': 'ja-JP,ja;q=0.9'})
+SESSION.headers.update({"User-Agent": USER_AGENT, "Accept-Language": "ja-JP,ja;q=0.9"})
 ROBOTS: dict[str, RobotFileParser] = {}
 
 
 def can_fetch(url: str) -> bool:
     parsed = urlparse(url)
-    origin = f'{parsed.scheme}://{parsed.netloc}/'
+    origin = f"{parsed.scheme}://{parsed.netloc}/"
     if origin not in ALLOWED_ORIGINS:
-        raise ValueError('許可されていない公式サイト: '+origin)
+        raise ValueError("許可されていない公式サイト: " + origin)
     if origin not in ROBOTS:
         rp = RobotFileParser()
-        robots_url = urljoin(origin, 'robots.txt')
+        robots_url = urljoin(origin, "robots.txt")
         rp.set_url(robots_url)
         try:
             # urllib.robotparser.read() は urllib の証明書ストアを使う。
@@ -59,103 +63,117 @@ def can_fetch(url: str) -> bool:
             response = SESSION.get(robots_url, timeout=15)
             if response.status_code == 200:
                 if len(response.content) > 500_000:
-                    raise ValueError('robots.txtが大きすぎます')
+                    raise ValueError("robots.txtが大きすぎます")
                 rp.parse(response.text.splitlines())
             elif response.status_code == 404:
                 # robots.txt が存在しない場合は制限の記載なしとして扱う。
                 # ページの利用条件やサーバーの応答には引き続き従う。
                 rp.parse([])
             elif response.status_code in (401, 403):
-                raise PermissionError(f'robots.txtへのアクセス拒否 (HTTP {response.status_code})')
+                raise PermissionError(f"robots.txtへのアクセス拒否 (HTTP {response.status_code})")
             else:
                 # 429/5xx/リダイレクト異常/その他は一時的に取得を中止。
-                raise RuntimeError(f'robots.txtを確認できません (HTTP {response.status_code})')
+                raise RuntimeError(f"robots.txtを確認できません (HTTP {response.status_code})")
         except requests.exceptions.SSLError as exc:
-            raise TLSVerifyError(f'robots.txtのTLS証明書検証失敗: {origin} / {exc}') from exc
+            raise TLSVerifyError(f"robots.txtのTLS証明書検証失敗: {origin} / {exc}") from exc
         except Exception as exc:
-            raise PermissionError(f'robots.txtを安全に確認できません: {origin} / {exc}') from exc
+            raise PermissionError(f"robots.txtを安全に確認できません: {origin} / {exc}") from exc
         ROBOTS[origin] = rp
     return ROBOTS[origin].can_fetch(USER_AGENT, url)
 
 
 def get_html(url: str) -> str:
     if not can_fetch(url):
-        raise PermissionError('robots.txtで取得が許可されていません: '+url)
+        raise PermissionError("robots.txtで取得が許可されていません: " + url)
     try:
         r = SESSION.get(url, timeout=22)
     except requests.exceptions.SSLError as exc:
-        raise TLSVerifyError(f'催事ページのTLS証明書検証失敗: {url} / {exc}') from exc
+        raise TLSVerifyError(f"催事ページのTLS証明書検証失敗: {url} / {exc}") from exc
     r.raise_for_status()
     if len(r.content) > 2_000_000:
-        raise ValueError('ページが2MBを超えています')
+        raise ValueError("ページが2MBを超えています")
     # Content-Type が charset を省略すると requests は Latin-1 と誤認することがある。
     # まず HTTP / HTML の明示的指定を尊重し、未指定ならHTMLの meta charset を調べる。
     # 文字化けすると日付の日本語「年/月/日」を正規表現が見つけられない。
-    header = r.headers.get('Content-Type', '')
-    if 'charset=' not in header.lower():
-        detected = re.search(rb'<meta[^>]+charset\s*=\s*[\"\']?([\w-]+)', r.content[:10000], re.I)
+    header = r.headers.get("Content-Type", "")
+    if "charset=" not in header.lower():
+        detected = re.search(rb"<meta[^>]+charset\s*=\s*[\"\']?([\w-]+)", r.content[:10000], re.I)
         if not detected:
-            detected = re.search(rb'<meta[^>]+content\s*=\s*[\"\'][^>]*charset=([\w-]+)', r.content[:10000], re.I)
+            detected = re.search(
+                rb"<meta[^>]+content\s*=\s*[\"\'][^>]*charset=([\w-]+)", r.content[:10000], re.I
+            )
         if detected:
-            r.encoding = detected.group(1).decode('ascii', errors='ignore')
-        elif r.encoding is None or r.encoding.lower() in ('iso-8859-1', 'latin-1'):
+            r.encoding = detected.group(1).decode("ascii", errors="ignore")
+        elif r.encoding is None or r.encoding.lower() in ("iso-8859-1", "latin-1"):
             try:
-                r.content.decode('utf-8', errors='strict')
-                r.encoding = 'utf-8'
+                r.content.decode("utf-8", errors="strict")
+                r.encoding = "utf-8"
             except UnicodeDecodeError:
-                r.encoding = r.apparent_encoding or 'utf-8'
+                r.encoding = r.apparent_encoding or "utf-8"
     return r.text
 
 
 def stable_id(venue: str, title: str, day: str) -> str:
-    title = re.sub(r'[\s\u3000]+', '', unicodedata.normalize('NFKC', title))
-    return hashlib.sha256(f'{venue}|{title}|{day}'.encode()).hexdigest()[:16]
+    title = re.sub(r"[\s\u3000]+", "", unicodedata.normalize("NFKC", title))
+    return hashlib.sha256(f"{venue}|{title}|{day}".encode()).hexdigest()[:16]
 
 
 def dedupe(records: list[dict]) -> list[dict]:
     """同一施設、同一名称、同一開催日の重複を取り除く。"""
     by_key: dict[tuple, dict] = {}
     for r in records:
-        key = (r.get('venue'), r.get('date'), re.sub(r'\s+', '', unicodedata.normalize('NFKC', r['title'])))
+        key = (
+            r.get("venue"),
+            r.get("date"),
+            re.sub(r"\s+", "", unicodedata.normalize("NFKC", r["title"])),
+        )
         if key not in by_key:
             by_key[key] = r
         else:
             # より多くの時刻情報が載ったレコードを採用
             old = by_key[key]
-            if int(bool(r.get('startAt'))) + int(bool(r.get('endAt'))) > int(bool(old.get('startAt'))) + int(bool(old.get('endAt'))):
+            if int(bool(r.get("startAt"))) + int(bool(r.get("endAt"))) > int(
+                bool(old.get("startAt"))
+            ) + int(bool(old.get("endAt"))):
                 by_key[key] = r
     result = list(by_key.values())
     for r in result:
-        r['id'] = stable_id(r['venue'], r['title'], r['date'])
-    return sorted(result, key=lambda x: (x['date'], x['venue'], x['title']))
+        r["id"] = stable_id(r["venue"], r["title"], r["date"])
+    return sorted(result, key=lambda x: (x["date"], x["venue"], x["title"]))
 
 
 # ---- Arena: keep v0.2's successful event-detail flow, with duplicate cleanup ----
 def arena_links(html: str) -> list[str]:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, "html.parser")
     links = []
-    for tag in soup.select('a[href]'):
-        url = urljoin(ARENA, tag.get('href', ''))
-        if re.fullmatch(r'https://kagawa-arena\.com/event/\d+/?', url) and url not in links:
+    for tag in soup.select("a[href]"):
+        url = urljoin(ARENA, tag.get("href", ""))
+        if re.fullmatch(r"https://kagawa-arena\.com/event/\d+/?", url) and url not in links:
             links.append(url)
     return links[:40]
 
 
 def arena_dates(text: str, now: datetime) -> list[date]:
     found = []
-    for yy, mm, dd in re.findall(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日', text):
+    for yy, mm, dd in re.findall(r"(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日", text):
         try:
             dt = date(int(yy), int(mm), int(dd))
-            if now.date()-timedelta(days=1) <= dt <= now.date()+timedelta(days=120) and dt not in found:
+            if (
+                now.date() - timedelta(days=1) <= dt <= now.date() + timedelta(days=120)
+                and dt not in found
+            ):
                 found.append(dt)
         except ValueError:
             pass
     if not found:
-        for mm, dd in re.findall(r'(?<!\d)(\d{1,2})[./](\d{1,2})(?!\d)', text[:600]):
-            for yy in (now.year, now.year+1):
+        for mm, dd in re.findall(r"(?<!\d)(\d{1,2})[./](\d{1,2})(?!\d)", text[:600]):
+            for yy in (now.year, now.year + 1):
                 try:
                     dt = date(yy, int(mm), int(dd))
-                    if now.date()-timedelta(days=1) <= dt <= now.date()+timedelta(days=120) and dt not in found:
+                    if (
+                        now.date() - timedelta(days=1) <= dt <= now.date() + timedelta(days=120)
+                        and dt not in found
+                    ):
                         found.append(dt)
                         break
                 except ValueError:
@@ -166,23 +184,36 @@ def arena_dates(text: str, now: datetime) -> list[date]:
 # 公式詳細の見出し「開場時間」「開演時間」「終演時間」を独立して解析する。
 # 「交通規制」などの時刻を公演の終演と誤認しないため、見出し単位で抽出する。
 ARENA_TIME_HEADING = re.compile(
-    r'^(開場時間|開演時間|開始時間|試合開始時間|開催時間|終演時間|終了時間|'
-    r'料金|チケット|公式サイト|お問い合わせ|お問合せ|注意事項|イベント|アクセス)$'
+    r"^(開場時間|開演時間|開始時間|試合開始時間|開催時間|終演時間|終了時間|"
+    r"料金|チケット|公式サイト|お問い合わせ|お問合せ|注意事項|イベント|アクセス)$"
 )
-ARENA_TIME_RE = re.compile(r'(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)')
-ARENA_FULL_DATE = re.compile(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日')
-ARENA_SHORT_DATE = re.compile(r'(?<!\d)(\d{1,2})/(\d{1,2})(?!\d)')
+ARENA_TIME_RE = re.compile(r"(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)")
+ARENA_FULL_DATE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日")
+ARENA_SHORT_DATE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})(?!\d)")
 
 
 def arena_time_sections(text: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
     active = None
     for raw in text.splitlines():
-        line = unicodedata.normalize('NFKC', raw).strip()
+        line = unicodedata.normalize("NFKC", raw).strip()
         if not line:
             continue
         if ARENA_TIME_HEADING.fullmatch(line):
-            active = line if line in {'開場時間','開演時間','開始時間','試合開始時間','開催時間','終演時間','終了時間'} else None
+            active = (
+                line
+                if line
+                in {
+                    "開場時間",
+                    "開演時間",
+                    "開始時間",
+                    "試合開始時間",
+                    "開催時間",
+                    "終演時間",
+                    "終了時間",
+                }
+                else None
+            )
             if active:
                 sections.setdefault(active, [])
             continue
@@ -204,7 +235,7 @@ def arena_section_times(lines: list[str], dates: list[date]) -> dict[str, str]:
         match = ARENA_TIME_RE.search(line)
         if not match:
             continue
-        hhmm = f'{int(match[1]):02d}:{match[2]}'
+        hhmm = f"{int(match[1]):02d}:{match[2]}"
         dates_full = ARENA_FULL_DATE.search(line)
         possible = []
         if dates_full:
@@ -219,7 +250,7 @@ def arena_section_times(lines: list[str], dates: list[date]) -> dict[str, str]:
                 possible.extend(d.isoformat() for d in dates if d.month == mm and d.day == dd)
         if not possible and i > 0:
             # 公式HTMLが「11月21日」改行「開演/18:00」と分離しているケース
-            last = lines[i-1]
+            last = lines[i - 1]
             dm = ARENA_FULL_DATE.search(last)
             if dm:
                 try:
@@ -232,98 +263,110 @@ def arena_section_times(lines: list[str], dates: list[date]) -> dict[str, str]:
                 found.setdefault(k, hhmm)
         else:
             undated.append(hhmm)
-    if len(dates)==1 and dates[0].isoformat() not in found and undated:
+    if len(dates) == 1 and dates[0].isoformat() not in found and undated:
         found[dates[0].isoformat()] = undated[0]
     return found
 
 
 def parse_arena_event(html: str, url: str, now: datetime) -> list[dict]:
-    soup = BeautifulSoup(html, 'html.parser')
-    h = soup.find('h1')
+    soup = BeautifulSoup(html, "html.parser")
+    h = soup.find("h1")
     if not h:
         return []
-    title = re.sub(r'\s+', ' ', h.get_text(' ', strip=True)).strip()
-    if not title or len(title)>160:
+    title = re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip()
+    if not title or len(title) > 160:
         return []
-    text = soup.get_text('\n', strip=True)
+    text = soup.get_text("\n", strip=True)
     start_pos = text.find(title)
-    relevant = text[max(0,start_pos-120):start_pos+2700] if start_pos>=0 else text[:2700]
+    relevant = text[max(0, start_pos - 120) : start_pos + 2700] if start_pos >= 0 else text[:2700]
     dates = arena_dates(relevant, now)
     if not dates:
         return []
     sections = arena_time_sections(relevant)
-    doors = arena_section_times(sections.get('開場時間', []), dates)
+    doors = arena_section_times(sections.get("開場時間", []), dates)
     starts = {}
-    for label in ('開演時間', '試合開始時間', '開始時間', '開催時間'):
+    for label in ("開演時間", "試合開始時間", "開始時間", "開催時間"):
         for k, v in arena_section_times(sections.get(label, []), dates).items():
             starts.setdefault(k, v)
     ends = {}
-    for label in ('終演時間', '終了時間'):
+    for label in ("終演時間", "終了時間"):
         for k, v in arena_section_times(sections.get(label, []), dates).items():
             ends.setdefault(k, v)
     records = []
     for day in dates:
         ds = day.isoformat()
         door, st, end = doors.get(ds), starts.get(ds), ends.get(ds)
-        records.append({
-            'id': stable_id('あなぶきアリーナ香川', title, ds),
-            'title': title[:110], 'date': ds,
-            'doorAt': f'{ds}T{door}:00+09:00' if door else None,
-            'startAt': f'{ds}T{st}:00+09:00' if st else None,
-            'endAt': f'{ds}T{end}:00+09:00' if end else None,
-            'endTimeType': '公式掲載の終演時間' if end else None,
-            'venue': 'あなぶきアリーナ香川', 'zone': 'station',
-            'source': '公式・あなぶきアリーナ香川', 'url': url,
-            'note': ('メイン等の催事情報は公式詳細で確認。'
-                     + ('公式掲載の終演時刻。' if end else '終演時刻未公表・未確認。')
-                     + ' 会場周辺での駐停車・送迎規制に注意。')
-        })
+        records.append(
+            {
+                "id": stable_id("あなぶきアリーナ香川", title, ds),
+                "title": title[:110],
+                "date": ds,
+                "doorAt": f"{ds}T{door}:00+09:00" if door else None,
+                "startAt": f"{ds}T{st}:00+09:00" if st else None,
+                "endAt": f"{ds}T{end}:00+09:00" if end else None,
+                "endTimeType": "公式掲載の終演時間" if end else None,
+                "venue": "あなぶきアリーナ香川",
+                "zone": "station",
+                "source": "公式・あなぶきアリーナ香川",
+                "url": url,
+                "note": (
+                    "メイン等の催事情報は公式詳細で確認。"
+                    + ("公式掲載の終演時刻。" if end else "終演時刻未公表・未確認。")
+                    + " 会場周辺での駐停車・送迎規制に注意。"
+                ),
+            }
+        )
     return records
+
 
 def fetch_arena(now: datetime) -> list[dict]:
     links = arena_links(get_html(ARENA))
     if not links:
-        raise RuntimeError('催事リンク0件（サイト構造を確認）')
-    print(f'アリーナ：詳細リンク {len(links)}件')
+        raise RuntimeError("催事リンク0件（サイト構造を確認）")
+    print(f"アリーナ：詳細リンク {len(links)}件")
     rows = []
     failed = []
     for url in links:
         try:
-            time.sleep(.6)
-            rows.extend(parse_arena_event(get_html(url),url,now))
+            time.sleep(0.6)
+            rows.extend(parse_arena_event(get_html(url), url, now))
         except Exception as exc:
-            failed.append(f'{url}: {exc}')
+            failed.append(f"{url}: {exc}")
     for err in failed[:5]:
-        print('アリーナ個別取得警告: '+err, file=sys.stderr)
+        print("アリーナ個別取得警告: " + err, file=sys.stderr)
     if not rows:
-        raise RuntimeError(f'有効な催事0件、取得失敗リンク {len(failed)}件')
+        raise RuntimeError(f"有効な催事0件、取得失敗リンク {len(failed)}件")
     return dedupe(rows)
 
 
 # ---- Sunmesse: an event listing provides date range and published opening hours ----
 DATE_SPAN = re.compile(
-    r'(?P<year>20\d{2})\.(?P<mo>\d{1,2})\.(?P<day>\d{1,2})\s*\([^)]{0,4}\)\s*[-–—~〜～]\s*'
-    r'(?:(?P<endyear>20\d{2})\.)?(?P<endmo>\d{1,2})\.(?P<endday>\d{1,2})\s*\([^)]{0,4}\)',
+    r"(?P<year>20\d{2})\.(?P<mo>\d{1,2})\.(?P<day>\d{1,2})\s*\([^)]{0,4}\)\s*[-–—~〜～]\s*"
+    r"(?:(?P<endyear>20\d{2})\.)?(?P<endmo>\d{1,2})\.(?P<endday>\d{1,2})\s*\([^)]{0,4}\)",
     re.M,
 )
-TIME_RANGE = re.compile(r'(?<!\d)([01]?\d|2[0-3]):([0-5]\d)\s*[～~〜―－–—-]\s*([01]?\d|2[0-3]):([0-5]\d)')
-FINAL_DAY_END = re.compile(r'最終日は?\s*([01]?\d|2[0-3]):([0-5]\d)\s*まで')
-IGNORABLE_TITLE = re.compile(r'^(?:一般|招待|予約|無料|有料|対象|主催|LINK|開催時間|会場|[○◯]|イベント情報|20\d{2}\.)')
+TIME_RANGE = re.compile(
+    r"(?<!\d)([01]?\d|2[0-3]):([0-5]\d)\s*[～~〜―－–—-]\s*([01]?\d|2[0-3]):([0-5]\d)"
+)
+FINAL_DAY_END = re.compile(r"最終日は?\s*([01]?\d|2[0-3]):([0-5]\d)\s*まで")
+IGNORABLE_TITLE = re.compile(
+    r"^(?:一般|招待|予約|無料|有料|対象|主催|LINK|開催時間|会場|[○◯]|イベント情報|20\d{2}\.)"
+)
 
 
 def normalize_lines(html: str) -> str:
-    soup = BeautifulSoup(html, 'html.parser')
-    for tag in soup(['script','style','nav','footer']):
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer"]):
         tag.decompose()
-    text = soup.get_text('\n',strip=True)
-    text = unicodedata.normalize('NFKC',text)
-    text = text.replace('\r','')
-    return '\n'.join(x.strip() for x in text.split('\n') if x.strip())
+    text = soup.get_text("\n", strip=True)
+    text = unicodedata.normalize("NFKC", text)
+    text = text.replace("\r", "")
+    return "\n".join(x.strip() for x in text.split("\n") if x.strip())
 
 
 def sunmesse_month_url(now: datetime, offset: int, origin: str = SUNMESSE) -> str:
-    month0 = (now.year * 12 + now.month-1)+offset
-    return f'{origin}event/?date={month0//12:04d}{month0%12+1:02d}'
+    month0 = (now.year * 12 + now.month - 1) + offset
+    return f"{origin}event/?date={month0//12:04d}{month0%12+1:02d}"
 
 
 def parse_sunmesse_list(html: str, url: str, now: datetime) -> list[dict]:
@@ -331,57 +374,75 @@ def parse_sunmesse_list(html: str, url: str, now: datetime) -> list[dict]:
     spans = list(DATE_SPAN.finditer(text))
     records = []
     for idx, match in enumerate(spans):
-        block = text[match.end():spans[idx+1].start() if idx+1<len(spans) else len(text)]
+        block = text[match.end() : spans[idx + 1].start() if idx + 1 < len(spans) else len(text)]
         # Limit post-date context so footer and unrelated article text cannot leak into it.
         block = block[:2200]
-        lines = block.split('\n')
+        lines = block.split("\n")
         title = None
         for line in lines[:12]:
-            cleaned = line.strip('・●○◯ \t')
-            if not cleaned or IGNORABLE_TITLE.match(cleaned) or cleaned in {'一般・無料','一般・有料','招待・無料','予約・無料','一般','招待'}:
+            cleaned = line.strip("・●○◯ \t")
+            if (
+                not cleaned
+                or IGNORABLE_TITLE.match(cleaned)
+                or cleaned
+                in {"一般・無料", "一般・有料", "招待・無料", "予約・無料", "一般", "招待"}
+            ):
                 continue
-            if re.fullmatch(r'[\s,、・/一-龯]+(?:無料|有料)',cleaned):
+            if re.fullmatch(r"[\s,、・/一-龯]+(?:無料|有料)", cleaned):
                 continue
             title = cleaned
             break
-        if not title or not 2<=len(title)<=150:
+        if not title or not 2 <= len(title) <= 150:
             continue
         try:
-            first = date(int(match['year']),int(match['mo']),int(match['day']))
-            lastyear = int(match['endyear']) if match['endyear'] else int(match['year'])
-            last = date(lastyear,int(match['endmo']),int(match['endday']))
-            if last<first:
-                last = date(lastyear+1,int(match['endmo']),int(match['endday']))
+            first = date(int(match["year"]), int(match["mo"]), int(match["day"]))
+            lastyear = int(match["endyear"]) if match["endyear"] else int(match["year"])
+            last = date(lastyear, int(match["endmo"]), int(match["endday"]))
+            if last < first:
+                last = date(lastyear + 1, int(match["endmo"]), int(match["endday"]))
         except ValueError:
             continue
-        if (last-first).days>31:
-            print('サンメッセ警告: 31日超の催事は省略 '+title[:30],file=sys.stderr)
+        if (last - first).days > 31:
+            print("サンメッセ警告: 31日超の催事は省略 " + title[:30], file=sys.stderr)
             continue
-        raw_hours = re.search(r'[◯○]?開催時間\s*[:：]\s*([^\n]{1,240})',block)
-        hours = raw_hours.group(1) if raw_hours else ''
+        raw_hours = re.search(r"[◯○]?開催時間\s*[:：]\s*([^\n]{1,240})", block)
+        hours = raw_hours.group(1) if raw_hours else ""
         ranges = TIME_RANGE.findall(hours)
         start_time, end_time = None, None
         if ranges:
-            start_time = f'{int(ranges[0][0]):02d}:{ranges[0][1]}'
-            end_time = f'{int(ranges[-1][2]):02d}:{ranges[-1][3]}'
+            start_time = f"{int(ranges[0][0]):02d}:{ranges[0][1]}"
+            end_time = f"{int(ranges[-1][2]):02d}:{ranges[-1][3]}"
         end_final = FINAL_DAY_END.search(hours)
-        raw_place = re.search(r'[◯○]?会場\s*[:：]\s*([^\n]{1,110})',block)
-        hall = raw_place.group(1).strip() if raw_place else ''
+        raw_place = re.search(r"[◯○]?会場\s*[:：]\s*([^\n]{1,110})", block)
+        hall = raw_place.group(1).strip() if raw_place else ""
         day = first
-        while day<=last:
-            if now.date()-timedelta(days=1)<=day<=now.date()+timedelta(days=120):
-                ds=day.isoformat()
-                last_end = f'{int(end_final[1]):02d}:{end_final[2]}' if end_final and day==last else end_time
-                valid_start = start_time and last_end and start_time<=last_end
+        while day <= last:
+            if now.date() - timedelta(days=1) <= day <= now.date() + timedelta(days=120):
+                ds = day.isoformat()
+                last_end = (
+                    f"{int(end_final[1]):02d}:{end_final[2]}"
+                    if end_final and day == last
+                    else end_time
+                )
+                valid_start = start_time and last_end and start_time <= last_end
                 # Public hours are a scheduled session/window, not proof of when taxis are needed.
-                records.append({'id':stable_id('サンメッセ香川',title,ds),
-                    'title':title[:110],'date':ds,
-                    'startAt':f'{ds}T{start_time}:00+09:00' if valid_start else None,
-                    'endAt':f'{ds}T{last_end}:00+09:00' if valid_start else None,
-                    'endTimeType':'公式掲載の開催時間終了' if valid_start else None,
-                    'venue':'サンメッセ香川','zone':'sunmesse',
-                    'source':'公式・サンメッセ香川','url':url,
-                    'note':('会場：'+hall+'。 ' if hall else '') + ('開催時間 '+hours[:110]+'。 ' if hours else '開催時間未確認。 ') + '終了時刻は退場集中や乗車需要を保証しません。'})
+                records.append(
+                    {
+                        "id": stable_id("サンメッセ香川", title, ds),
+                        "title": title[:110],
+                        "date": ds,
+                        "startAt": f"{ds}T{start_time}:00+09:00" if valid_start else None,
+                        "endAt": f"{ds}T{last_end}:00+09:00" if valid_start else None,
+                        "endTimeType": "公式掲載の開催時間終了" if valid_start else None,
+                        "venue": "サンメッセ香川",
+                        "zone": "sunmesse",
+                        "source": "公式・サンメッセ香川",
+                        "url": url,
+                        "note": ("会場：" + hall + "。 " if hall else "")
+                        + ("開催時間 " + hours[:110] + "。 " if hours else "開催時間未確認。 ")
+                        + "終了時刻は退場集中や乗車需要を保証しません。",
+                    }
+                )
             day += timedelta(days=1)
     return dedupe(records)
 
@@ -404,51 +465,64 @@ def fetch_sunmesse(now: datetime) -> list[dict]:
                 current_origin = origin
                 successful_pages += 1
                 found = parse_sunmesse_list(html, url, now)
-                print(f'サンメッセ：接続成功 {origin} / {len(found)}件（日別）')
+                print(f"サンメッセ：接続成功 {origin} / {len(found)}件（日別）")
                 rows.extend(found)
                 break
             except TLSVerifyError as exc:
-                print(f'サンメッセTLS診断: {origin} の証明書検証に失敗。別ホストを確認: {exc}',file=sys.stderr)
+                print(
+                    f"サンメッセTLS診断: {origin} の証明書検証に失敗。別ホストを確認: {exc}",
+                    file=sys.stderr,
+                )
                 continue
             except Exception as exc:
                 # robots.txtの拒否や403/429等なら別ドメインに迂回しない。
-                print(f'サンメッセ月間ページ警告: {url}: {exc}',file=sys.stderr)
+                print(f"サンメッセ月間ページ警告: {url}: {exc}", file=sys.stderr)
                 break
         if offset < 2:
-            time.sleep(.8)
+            time.sleep(0.8)
     if successful_pages == 0:
-        raise RuntimeError('サンメッセの月間ページを安全に取得できません。全候補の証明書・robots.txtを確認してください')
+        raise RuntimeError(
+            "サンメッセの月間ページを安全に取得できません。全候補の証明書・robots.txtを確認してください"
+        )
     if not rows:
-        raise RuntimeError('サンメッセの催事情報を抽出できませんでした（仕様変更等を確認）')
+        raise RuntimeError("サンメッセの催事情報を抽出できませんでした（仕様変更等を確認）")
     return dedupe(rows)
-
 
 
 # ---- Sunport Hall Takamatsu: official, public hall calendar; Sunmesse is paused ----
 # 公式ページの各催事には「催事名 / YYYY年M月D日 / 会場 / 時間」が表示される。
 # 配信HTMLのクラス名変更に比較的強いテキスト解析と、詳細リンクの照合を併用。
-SUNPORT_DATE_RE = re.compile(r'^\s*(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:\([^)]{0,12}\))?\s*(.*)$')
-SUNPORT_HALL_RE = re.compile(r'(?:大ホール|第[12]小ホール|市民ギャラリー|コミュニケーションプラザ|国際会議場|会議室|展示場|多目的室|ホール棟)')
+SUNPORT_DATE_RE = re.compile(
+    r"^\s*(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日\s*(?:\([^)]{0,12}\))?\s*(.*)$"
+)
+SUNPORT_HALL_RE = re.compile(
+    r"(?:大ホール|第[12]小ホール|市民ギャラリー|コミュニケーションプラザ|国際会議場|会議室|展示場|多目的室|ホール棟)"
+)
 
 
 def sunport_normalize(txt: str) -> str:
-    return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', re.sub(r'([①-⑳])', r' \1 ', txt or ''))).strip()
+    return re.sub(
+        r"\s+", " ", unicodedata.normalize("NFKC", re.sub(r"([①-⑳])", r" \1 ", txt or ""))
+    ).strip()
 
 
 def parse_sunport_calendar(html: str, page_url: str, now: datetime) -> list[dict]:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, "html.parser")
     # 主サイト全体の案内メニュー・フッターを混入させない。
-    main = soup.find('main') or soup.find(id='contents') or soup.body or soup
-    for tag in main.select('script,style,nav,footer,header'):
+    main = soup.find("main") or soup.find(id="contents") or soup.body or soup
+    for tag in main.select("script,style,nav,footer,header"):
         tag.decompose()
-    lines = [sunport_normalize(x) for x in main.get_text('\n', strip=True).splitlines()]
+    lines = [sunport_normalize(x) for x in main.get_text("\n", strip=True).splitlines()]
     lines = [x for x in lines if x]
-    links: dict[str,str] = {}
-    for a in main.select('a[href]'):
-        title = sunport_normalize(a.get_text(' ', strip=True))
-        url = urljoin(SUNPORT, a['href'])
-        if (urlparse(url).scheme == 'https' and urlparse(url).hostname == 'www.sunport-hall.jp'
-                and re.search(r'/hall/20\d{2}/[0-9]+\.html$', urlparse(url).path)):
+    links: dict[str, str] = {}
+    for a in main.select("a[href]"):
+        title = sunport_normalize(a.get_text(" ", strip=True))
+        url = urljoin(SUNPORT, a["href"])
+        if (
+            urlparse(url).scheme == "https"
+            and urlparse(url).hostname == "www.sunport-hall.jp"
+            and re.search(r"/hall/20\d{2}/[0-9]+\.html$", urlparse(url).path)
+        ):
             links[title] = url
     out = []
     for i, line in enumerate(lines):
@@ -459,75 +533,94 @@ def parse_sunport_calendar(html: str, page_url: str, now: datetime) -> list[dict
             day = date(int(match[1]), int(match[2]), int(match[3]))
         except ValueError:
             continue
-        if not (now.date()-timedelta(days=1) <= day <= now.date()+timedelta(days=120)):
+        if not (now.date() - timedelta(days=1) <= day <= now.date() + timedelta(days=120)):
             continue
         # 公式カレンダーはイベントタイトルを開催日時の直前に置く。
         recent_titles = []
-        for old in lines[max(0, i-5):i]:
-            if (2 <= len(old) <= 150 and not SUNPORT_DATE_RE.match(old)
-                    and not re.match(r'^(?:20\d{2}年\d+月|ホールイベント|お知らせ|イベントカレンダー|入場料等|お問合せ)$',old)):
+        for old in lines[max(0, i - 5) : i]:
+            if (
+                2 <= len(old) <= 150
+                and not SUNPORT_DATE_RE.match(old)
+                and not re.match(
+                    r"^(?:20\d{2}年\d+月|ホールイベント|お知らせ|イベントカレンダー|入場料等|お問合せ)$",
+                    old,
+                )
+            ):
                 recent_titles.append(old)
         if not recent_titles:
             continue
         title = recent_titles[-1]
-        if (title in {'詳しくはこちら', '大ホール', '第1小ホール', '第2小ホール'}
-                or re.fullmatch(r'\d{1,2}', title)):
+        if title in {"詳しくはこちら", "大ホール", "第1小ホール", "第2小ホール"} or re.fullmatch(
+            r"\d{1,2}", title
+        ):
             continue
         # 開催日直後から「入場料等」等の見出し手前までを掲載時刻とする。
         slot_lines = [match[4]]
-        for future in lines[i+1:i+7]:
-            if future in {'入場料等', 'お問合せ', '料金', '発売'} or SUNPORT_DATE_RE.match(future):
+        for future in lines[i + 1 : i + 7]:
+            if future in {"入場料等", "お問合せ", "料金", "発売"} or SUNPORT_DATE_RE.match(future):
                 break
             slot_lines.append(future)
-        block = ' '.join(slot_lines)
+        block = " ".join(slot_lines)
         ranges = TIME_RANGE.findall(block)
         start, end = None, None
         if ranges:
-            start = f'{int(ranges[0][0]):02d}:{ranges[0][1]}'
-            end = f'{int(ranges[-1][2]):02d}:{ranges[-1][3]}'
+            start = f"{int(ranges[0][0]):02d}:{ranges[0][1]}"
+            end = f"{int(ranges[-1][2]):02d}:{ranges[-1][3]}"
             if start > end:
                 start, end = None, None
         hall = SUNPORT_HALL_RE.search(block)
-        room = hall.group(0) if hall else ''
-        tag = '関係者のみ（一般来場不可）' if '関係者のみ' in ' '.join(lines[i+1:i+12]) else ''
+        room = hall.group(0) if hall else ""
+        tag = (
+            "関係者のみ（一般来場不可）" if "関係者のみ" in " ".join(lines[i + 1 : i + 12]) else ""
+        )
         # 複数公演では、最初の開演と最後の掲載終了時刻。連続開催と誤認させない。
         multiple = len(ranges) > 1
-        note = ('公式掲載の開催時間。' if start and end else '公表時刻未確認。')
-        if multiple: note += ' 複数回公演（時間帯は連続開催ではありません）。'
-        if room: note += f' 会場：{room}。'
-        if tag: note += f' {tag}。'
-        note += ' 掲載終了時刻は実際の退場時刻・タクシー需要を保証しません。'
+        note = "公式掲載の開催時間。" if start and end else "公表時刻未確認。"
+        if multiple:
+            note += " 複数回公演（時間帯は連続開催ではありません）。"
+        if room:
+            note += f" 会場：{room}。"
+        if tag:
+            note += f" {tag}。"
+        note += " 掲載終了時刻は実際の退場時刻・タクシー需要を保証しません。"
         ds = day.isoformat()
-        out.append({'id':stable_id('サンポートホール高松', title, ds),
-             'title':title[:110], 'date':ds,
-             'startAt':f'{ds}T{start}:00+09:00' if start else None,
-             'endAt':f'{ds}T{end}:00+09:00' if end else None,
-             'endTimeType':'公式掲載の催事終了予定' if end else None,
-             'venue':'サンポートホール高松', 'zone':'station',
-             'source':'公式・サンポートホール高松',
-             'url':links.get(title, page_url), 'note':note})
+        out.append(
+            {
+                "id": stable_id("サンポートホール高松", title, ds),
+                "title": title[:110],
+                "date": ds,
+                "startAt": f"{ds}T{start}:00+09:00" if start else None,
+                "endAt": f"{ds}T{end}:00+09:00" if end else None,
+                "endTimeType": "公式掲載の催事終了予定" if end else None,
+                "venue": "サンポートホール高松",
+                "zone": "station",
+                "source": "公式・サンポートホール高松",
+                "url": links.get(title, page_url),
+                "note": note,
+            }
+        )
     return dedupe(out)
 
 
 # v0.4.1: 月間カレンダーの構造や改行に左右されない詳細ページ経由の予備取得。
-SUNPORT_DETAIL_PATH = re.compile(r'^/hall/20\d{2}/[0-9]+\.html$')
-SUNPORT_ANY_DATE = re.compile(r'(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日')
+SUNPORT_DETAIL_PATH = re.compile(r"^/hall/20\d{2}/[0-9]+\.html$")
+SUNPORT_ANY_DATE = re.compile(r"(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日")
 
 
 def sunport_detail_links(html: str) -> list[tuple[str, str]]:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, "html.parser")
     found: list[tuple[str, str]] = []
     seen: set[str] = set()
     # 本文の <main> に限定しない。サイトにより予定表が別コンテナにある。
-    for tag in soup.select('a[href]'):
-        uri = urljoin(SUNPORT, tag.get('href', ''))
+    for tag in soup.select("a[href]"):
+        uri = urljoin(SUNPORT, tag.get("href", ""))
         parsed = urlparse(uri)
-        if parsed.hostname not in ('www.sunport-hall.jp', 'sunport-hall.jp'):
+        if parsed.hostname not in ("www.sunport-hall.jp", "sunport-hall.jp"):
             continue
         if not SUNPORT_DETAIL_PATH.fullmatch(parsed.path):
             continue
-        clean_uri = urljoin(SUNPORT, parsed.path.lstrip('/'))
-        title = sunport_normalize(tag.get_text(' ', strip=True))
+        clean_uri = urljoin(SUNPORT, parsed.path.lstrip("/"))
+        title = sunport_normalize(tag.get_text(" ", strip=True))
         if not title or clean_uri in seen:
             continue
         seen.add(clean_uri)
@@ -536,11 +629,11 @@ def sunport_detail_links(html: str) -> list[tuple[str, str]]:
 
 
 def parse_sunport_detail(html: str, uri: str, link_title: str, now: datetime) -> list[dict]:
-    soup = BeautifulSoup(html, 'html.parser')
-    for tag in soup(['script', 'style', 'noscript']):
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript"]):
         tag.decompose()
     # 明確な日付が書かれた公式の個別催事ページだけを採用する。
-    text = unicodedata.normalize('NFKC', soup.get_text(' ', strip=True))
+    text = unicodedata.normalize("NFKC", soup.get_text(" ", strip=True))
     dates = list(SUNPORT_ANY_DATE.finditer(text))
     if not dates:
         return []
@@ -558,35 +651,41 @@ def parse_sunport_detail(html: str, uri: str, link_title: str, now: datetime) ->
         if not (now.date() - timedelta(days=1) <= day <= now.date() + timedelta(days=120)):
             continue
         # 別の文脈の日時を拾わないよう日付後200文字以内の時間帯に限定。
-        after = text[m.end():m.end()+210]
+        after = text[m.end() : m.end() + 210]
         # 続く「入場料等」「お問合せ」以降は催事本文ではない。
-        after = re.split(r'入場料等|お問合せ|問い合わせ|料金', after, maxsplit=1)[0]
+        after = re.split(r"入場料等|お問合せ|問い合わせ|料金", after, maxsplit=1)[0]
         ranges = TIME_RANGE.findall(after)
         start = end = None
         if ranges:
-            start = f'{int(ranges[0][0]):02d}:{ranges[0][1]}'
-            end = f'{int(ranges[-1][2]):02d}:{ranges[-1][3]}'
+            start = f"{int(ranges[0][0]):02d}:{ranges[0][1]}"
+            end = f"{int(ranges[-1][2]):02d}:{ranges[-1][3]}"
             if start > end:
                 start = end = None
         ds = day.isoformat()
         hall = SUNPORT_HALL_RE.search(after)
-        note = '公式個別ページの掲載時間。' if start and end else '開催時刻未確認。'
+        note = "公式個別ページの掲載時間。" if start and end else "開催時刻未確認。"
         if len(ranges) > 1:
-            note += ' 複数の開催時間帯が記載されています。'
+            note += " 複数の開催時間帯が記載されています。"
         if hall:
-            note += f' 会場：{hall.group(0)}。'
-        if '関係者のみ' in text:
-            note += ' 関係者のみ。'
-        note += ' 掲載終了時刻は実際の退場時刻を保証しません。'
-        output.append({
-            'id': stable_id('サンポートホール高松', title, ds),
-            'title': title[:110], 'date': ds,
-            'startAt': f'{ds}T{start}:00+09:00' if start else None,
-            'endAt': f'{ds}T{end}:00+09:00' if end else None,
-            'endTimeType': '公式掲載の催事終了予定' if end else None,
-            'venue': 'サンポートホール高松', 'zone': 'station',
-            'source': '公式・サンポートホール高松', 'url': uri, 'note': note,
-        })
+            note += f" 会場：{hall.group(0)}。"
+        if "関係者のみ" in text:
+            note += " 関係者のみ。"
+        note += " 掲載終了時刻は実際の退場時刻を保証しません。"
+        output.append(
+            {
+                "id": stable_id("サンポートホール高松", title, ds),
+                "title": title[:110],
+                "date": ds,
+                "startAt": f"{ds}T{start}:00+09:00" if start else None,
+                "endAt": f"{ds}T{end}:00+09:00" if end else None,
+                "endTimeType": "公式掲載の催事終了予定" if end else None,
+                "venue": "サンポートホール高松",
+                "zone": "station",
+                "source": "公式・サンポートホール高松",
+                "url": uri,
+                "note": note,
+            }
+        )
         # 1つの詳細ページ内の別日付（お問合せ・告知等）の誤認を防ぐ。
         # 複数日開催を個別に掲載するサイトなので、基本的に最初の該当日だけ。
         break
@@ -594,7 +693,7 @@ def parse_sunport_detail(html: str, uri: str, link_title: str, now: datetime) ->
 
 
 def fetch_sunport(now: datetime) -> list[dict]:
-    urls = [urljoin(SUNPORT, 'hall/'), urljoin(SUNPORT, 'hall/next.html')]
+    urls = [urljoin(SUNPORT, "hall/"), urljoin(SUNPORT, "hall/next.html")]
     rows: list[dict] = []
     detail_links: dict[str, str] = {}
     pages_fetched = 0
@@ -602,22 +701,27 @@ def fetch_sunport(now: datetime) -> list[dict]:
         try:
             html = get_html(url)
             pages_fetched += 1
-            print(f'サンポート診断: {url}: HTML {len(html)}文字、日付表記 {html.count("年")}箇所、催事リンク候補 {len(sunport_detail_links(html))}件')
+            print(
+                f'サンポート診断: {url}: HTML {len(html)}文字、日付表記 {html.count("年")}箇所、催事リンク候補 {len(sunport_detail_links(html))}件'
+            )
             part = parse_sunport_calendar(html, url, now)
             if part:
                 rows.extend(part)
-                print(f'サンポートホール: 月間ページから {len(part)}件抽出')
+                print(f"サンポートホール: 月間ページから {len(part)}件抽出")
             else:
-                print(f'サンポートホール: 月間ページの直接解析0件（詳細ページ方式で再試行）', file=sys.stderr)
+                print(
+                    f"サンポートホール: 月間ページの直接解析0件（詳細ページ方式で再試行）",
+                    file=sys.stderr,
+                )
             for uri, title in sunport_detail_links(html):
                 detail_links[uri] = title
         except Exception as exc:
-            print(f'サンポートホール月間ページ警告: {url}: {exc}',file=sys.stderr)
-        time.sleep(.4)
+            print(f"サンポートホール月間ページ警告: {url}: {exc}", file=sys.stderr)
+        time.sleep(0.4)
     # 一覧解析が十分に取れた場合は詳細ページの大量アクセスをしない。
     # 取りこぼしがある場合だけ件数を抑えて個別ページから補完。
     if len(rows) < 5:
-        print(f'サンポート診断: 個別催事リンク {len(detail_links)}件、詳細取得を最大40ページ試行')
+        print(f"サンポート診断: 個別催事リンク {len(detail_links)}件、詳細取得を最大40ページ試行")
         details_ok = 0
         errors = []
         for uri, title in list(detail_links.items())[:40]:
@@ -628,76 +732,135 @@ def fetch_sunport(now: datetime) -> list[dict]:
                     rows.extend(part)
             except Exception as exc:
                 if len(errors) < 5:
-                    errors.append(f'{uri}: {exc}')
-            time.sleep(.45)
-        print(f'サンポート診断: 個別詳細の解析成功 {details_ok}件 / 候補 {min(len(detail_links), 40)}件')
+                    errors.append(f"{uri}: {exc}")
+            time.sleep(0.45)
+        print(
+            f"サンポート診断: 個別詳細の解析成功 {details_ok}件 / 候補 {min(len(detail_links), 40)}件"
+        )
         for msg in errors:
-            print(f'サンポート詳細ページ警告: {msg}', file=sys.stderr)
+            print(f"サンポート詳細ページ警告: {msg}", file=sys.stderr)
     result = dedupe(rows)
     if not result:
-        raise RuntimeError(f'サンポート公式ページ取得済 {pages_fetched}、詳細リンク {len(detail_links)}、抽出催事0件。HTML構造・文字コードを要調査')
+        raise RuntimeError(
+            f"サンポート公式ページ取得済 {pages_fetched}、詳細リンク {len(detail_links)}、抽出催事0件。HTML構造・文字コードを要調査"
+        )
     return result
 
 
 def read_backup(now: datetime) -> dict:
     # The Pages artifact is not committed back to the git repo; fetch its last published data.
     try:
-        r=SESSION.get(PUBLIC_BACKUP,timeout=12,params={'v':now.strftime('%Y%m%d%H%M')})
+        r = SESSION.get(PUBLIC_BACKUP, timeout=12, params={"v": now.strftime("%Y%m%d%H%M")})
         r.raise_for_status()
-        if len(r.content)>600_000:
+        if len(r.content) > 600_000:
             return {}
-        content=r.json()
-        if content.get('schema')==1 and isinstance(content.get('events'),list) and len(content['events'])<=350:
+        content = r.json()
+        if (
+            content.get("schema") == 1
+            and isinstance(content.get("events"), list)
+            and len(content["events"]) <= 350
+        ):
             return content
     except Exception as exc:
-        print(f'前回公開データの取得不可: {exc}',file=sys.stderr)
+        print(f"前回公開データの取得不可: {exc}", file=sys.stderr)
     return {}
 
 
 def main() -> int:
-    now=datetime.now(JST)
+    now = datetime.now(JST)
     previous = read_backup(now)
     results: list[dict] = []
     statuses = []
-    for key, fetcher, venue in [('arena',fetch_arena,'あなぶきアリーナ香川'),('sunport',fetch_sunport,'サンポートホール高松')]:
+    for key, fetcher, venue in [
+        ("arena", fetch_arena, "あなぶきアリーナ香川"),
+        ("sunport", fetch_sunport, "サンポートホール高松"),
+    ]:
         try:
-            rows=fetcher(now)
-            rows=dedupe(rows)
+            rows = fetcher(now)
+            rows = dedupe(rows)
             results.extend(rows)
-            statuses.append({'venue':venue,'status':'ok','count':len(rows),'checkedAt':now.isoformat(timespec='seconds')})
-            print(f'{venue}: 新規取得 {len(rows)}件')
+            statuses.append(
+                {
+                    "venue": venue,
+                    "status": "ok",
+                    "count": len(rows),
+                    "checkedAt": now.isoformat(timespec="seconds"),
+                }
+            )
+            print(f"{venue}: 新規取得 {len(rows)}件")
         except Exception as exc:
-            print(f'警告: {venue} 取得失敗: {exc}',file=sys.stderr)
-            prev_time=previous.get('updatedAt')
+            print(f"警告: {venue} 取得失敗: {exc}", file=sys.stderr)
+            prev_time = previous.get("updatedAt")
             try:
-                recent=prev_time and (now-datetime.fromisoformat(prev_time)).total_seconds() < 7*24*3600
-            except (ValueError,TypeError):
-                recent=False
-            old=[]
+                recent = (
+                    prev_time
+                    and (now - datetime.fromisoformat(prev_time)).total_seconds() < 7 * 24 * 3600
+                )
+            except (ValueError, TypeError):
+                recent = False
+            old = []
             if recent:
-                old=[r for r in previous.get('events',[]) if r.get('venue')==venue and isinstance(r.get('date'),str) and r['date']>= (now.date()-timedelta(days=1)).isoformat()]
+                old = [
+                    r
+                    for r in previous.get("events", [])
+                    if r.get("venue") == venue
+                    and isinstance(r.get("date"), str)
+                    and r["date"] >= (now.date() - timedelta(days=1)).isoformat()
+                ]
             if old:
                 results.extend(old)
-                statuses.append({'venue':venue,'status':'stale','count':len(old),'checkedAt':now.isoformat(timespec='seconds')})
-                print(f'注意: {venue} は前回公開データを {len(old)}件 維持',file=sys.stderr)
+                statuses.append(
+                    {
+                        "venue": venue,
+                        "status": "stale",
+                        "count": len(old),
+                        "checkedAt": now.isoformat(timespec="seconds"),
+                    }
+                )
+                print(f"注意: {venue} は前回公開データを {len(old)}件 維持", file=sys.stderr)
             else:
-                statuses.append({'venue':venue,'status':'error','count':0,'checkedAt':now.isoformat(timespec='seconds')})
+                statuses.append(
+                    {
+                        "venue": venue,
+                        "status": "error",
+                        "count": 0,
+                        "checkedAt": now.isoformat(timespec="seconds"),
+                    }
+                )
     # サンメッセはSSL問題の解決待ち。今回はアクセスせず、取得結果も公開しない。
-    statuses.append({'venue':'サンメッセ香川','status':'paused','count':0,'checkedAt':now.isoformat(timespec='seconds')})
-    results=dedupe(results)[:300]
+    statuses.append(
+        {
+            "venue": "サンメッセ香川",
+            "status": "paused",
+            "count": 0,
+            "checkedAt": now.isoformat(timespec="seconds"),
+        }
+    )
+    results = dedupe(results)[:300]
     if not results:
-        print('エラー: 有効な催事が0件のため更新しません。現在公開済みのサイトを維持します。',file=sys.stderr)
+        print(
+            "エラー: 有効な催事が0件のため更新しません。現在公開済みのサイトを維持します。",
+            file=sys.stderr,
+        )
         return 1
-    payload={'schema':1,'updatedAt':now.isoformat(timespec='seconds'),
-             'source':'複数公式サイト','sourceName':'あなぶきアリーナ香川・サンポートホール高松（公式）',
-             'verifiedFinishTime':False,'events':results,
-             'sources':statuses,
-             'partial':any(x['status'] in ('stale','error') for x in statuses)}
-    OUT.parent.mkdir(parents=True,exist_ok=True)
-    OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
-    print(f'保存: {OUT} / {len(results)}件 / '+', '.join(f"{x['venue']}:{x['status']} {x['count']}件" for x in statuses))
+    payload = {
+        "schema": 1,
+        "updatedAt": now.isoformat(timespec="seconds"),
+        "source": "複数公式サイト",
+        "sourceName": "あなぶきアリーナ香川・サンポートホール高松（公式）",
+        "verifiedFinishTime": False,
+        "events": results,
+        "sources": statuses,
+        "partial": any(x["status"] in ("stale", "error") for x in statuses),
+    }
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf8")
+    print(
+        f"保存: {OUT} / {len(results)}件 / "
+        + ", ".join(f"{x['venue']}:{x['status']} {x['count']}件" for x in statuses)
+    )
     return 0
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     raise SystemExit(main())
