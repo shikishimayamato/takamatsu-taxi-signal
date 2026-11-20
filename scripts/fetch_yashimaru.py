@@ -204,6 +204,8 @@ def fetch_official(now: datetime) -> tuple[list[dict], int]:
     session = requests.Session()
     session.headers.update({"User-Agent": AGENT, "Accept-Language": "ja-JP,ja;q=0.9"})
     rr = session.get("https://www.yashima-navi.jp/robots.txt", timeout=(10, 15))
+    if rr.status_code == 503 and "メンテナンス" in rr.content.decode("utf-8", errors="replace"):
+        raise RuntimeError("公式サイトがメンテナンス中です。復旧後の自動取得で再確認します")
     if rr.status_code == 404:
         rules = []
     elif rr.status_code == 200 and len(rr.content) <= 500_000:

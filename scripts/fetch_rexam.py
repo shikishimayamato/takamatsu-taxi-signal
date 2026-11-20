@@ -22,6 +22,7 @@ AGENT = "TakamatsuTaxiSignal/0.7c (official calendar; twice daily)"
 JST = ZoneInfo("Asia/Tokyo")
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": AGENT, "Accept-Language": "ja-JP,ja;q=0.9"})
+SESSION.mount("https://", requests.adapters.HTTPAdapter(max_retries=requests.adapters.Retry(total=2, backoff_factor=1, status_forcelist=(502, 503, 504))))
 ROBOTS = None
 DATE = re.compile(r"(20\d{2})\s*(?:年|[/.-])\s*(\d{1,2})\s*(?:月|[/.-])\s*(\d{1,2})\s*日?")
 REIWA = re.compile(r"令和\s*(\d{1,2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
@@ -55,7 +56,10 @@ def get_html(url):
         raise ValueError("公式ページが2.5MBを超過")
     if "charset=" not in res.headers.get("Content-Type", "").lower():
         res.encoding = res.apparent_encoding or "utf-8"
-    return res.text
+    text = res.text
+    if re.search(r"ただいまメンテナンス中|Site is undergoing maintenance", text, re.I):
+        raise RuntimeError("公式サイトがメンテナンス中です。催事なしではなく取得不能として扱います")
+    return text
 
 
 def find_dates(text, now):

@@ -12,6 +12,7 @@ import json
 import re
 import sys
 import unicodedata
+from tempfile import TemporaryDirectory
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
@@ -24,10 +25,9 @@ from bs4 import BeautifulSoup
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "data" / "events.json"
 PRIMARY = "https://www.sunmesse.com/"
-# 2026-11時点、公式サイトと同じ内容を掲載しているサブドメイン。TLS失敗時に限り利用。
-TLS_FALLBACK = "https://pop.sunmesse.com/"
-TLS_FALLBACK_2 = "https://ftp.sunmesse.com/"
-OFFICIAL_HOSTS = (PRIMARY, TLS_FALLBACK, TLS_FALLBACK_2)
+# 公式サーバーが送信していない中間証明書。ルートCA・ホスト名・有効期限の検証は維持。
+SUNMESSE_INTERMEDIATE = '-----BEGIN CERTIFICATE-----\nMIIGSTCCBDGgAwIBAgIRAPz5Xpo+4sMWdMeqsH4HC6kwDQYJKoZIhvcNAQEMBQAw\nXzELMAkGA1UEBhMCR0IxGDAWBgNVBAoTD1NlY3RpZ28gTGltaXRlZDE2MDQGA1UE\nAxMtU2VjdGlnbyBQdWJsaWMgU2VydmVyIEF1dGhlbnRpY2F0aW9uIFJvb3QgUjQ2\nMB4XDTI1MDUxNDAwMDAwMFoXDTM1MDUxMzIzNTk1OVowbjELMAkGA1UEBhMCSlAx\nIDAeBgNVBAoTF0Nsb3VkU2VjdXJlIENvcnBvcmF0aW9uMT0wOwYDVQQDEzRDbG91\nZFNlY3VyZSBSU0EgRG9tYWluIFZhbGlkYXRpb24gU2VjdXJlIFNlcnZlciBDQSAz\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAoRFDmDuslZcRl60ypMkN\n9MssLJ8/sDuA+Cb6Q1iAkbY2cQHZe1P13fFI35q41JYVlBzLHPXAGWDzJDo5ZPSS\nLApMfb9CpNpjznNTOFxr3ET0IcQApWihaEJR82nvNu+BQfeivWGyvN/+4vjRx+PU\nEWi6/E6H4caxC/Nb1E21TJp9osJiEMiHjybA7IRD2NRu86ocLeWuwzGicrjoNHXs\nPT8KI7lOmKExFOC6c6tNbUjyKsDz5dtQ7u9mGu6YoK5TtCHJcijuXquXdDRN9XVg\nxQSAlMMUuKZBigboZDvNlNUF7eQED7wtubFID3SBmdo05JdYyQE/MbnMyEuskweW\n5dk36ivrKqA8zBoGNWSrkvqplNBcP5CbifiNRYFazzXMHj228IHM2bmFc+AJeaaQ\nqcHUIcLaMRHPxgFA6YMagOM35G3O4oK6FxDJEgQTyzDfHPbMp2uj0K951eM+VpTv\ndI/reEm6dc9EGJLqEn2QzUGTsOcphM35O7h88tbEVlYhAgMBAAGjggFvMIIBazAf\nBgNVHSMEGDAWgBRWc1hklfmSGrASKgRieaFAFYghSTAdBgNVHQ4EFgQUAVYTju8n\nS9Gv8gApXhzNcwxVf8YwDgYDVR0PAQH/BAQDAgGGMBIGA1UdEwEB/wQIMAYBAf8C\nAQAwEwYDVR0lBAwwCgYIKwYBBQUHAwEwEwYDVR0gBAwwCjAIBgZngQwBAgEwVAYD\nVR0fBE0wSzBJoEegRYZDaHR0cDovL2NybC5zZWN0aWdvLmNvbS9TZWN0aWdvUHVi\nbGljU2VydmVyQXV0aGVudGljYXRpb25Sb290UjQ2LmNybDCBhAYIKwYBBQUHAQEE\neDB2ME8GCCsGAQUFBzAChkNodHRwOi8vY3J0LnNlY3RpZ28uY29tL1NlY3RpZ29Q\ndWJsaWNTZXJ2ZXJBdXRoZW50aWNhdGlvblJvb3RSNDYucDdjMCMGCCsGAQUFBzAB\nhhdodHRwOi8vb2NzcC5zZWN0aWdvLmNvbTANBgkqhkiG9w0BAQwFAAOCAgEAMT+Y\neO0WEg1XjdqrLTbCxZiG3Q4TS72A8Ti828lMN4XzhfdNmzwuGkAWfzW0SGQcZOfR\nkD6RsgDTcT3Dvba1IO5MvqtZj0R3f6+bFv8xZtab2Ni/xerSzAhkok4SLh7vH6x6\nb43VrHj9r9w4/AU7/o7iuxzEC0dYhEzBNkydueSp/KKwV1TYiKDiU4s7MmFxKXBV\nb/l7qfpyQ3nLQmn/Rf4R7gA4nU97Xa5ndMGzXXir7xwYv3RJLR+hk/906xD4Us7S\n/u11o17Aexwg42OPhksolCHUUkA3igRdZRrDF2DqbamwZfb/c6Ksf/JT1uFUb/nL\nsDdX274Sg/T+gAhWV2JdJLBtWMmLcJUGRlYvhnybrKgfprltm23/Y/XAmv45X2l2\n5dSmxhutoxcH8qyfPjkQQ8xwuqo0YSoNdeeYWshV9xeEqkB4VEsswSOvNwaqnvf/\npko2Df9V7HHYxA/M8FO4qtRaOlOdhSmUspGOGmXtdak+JolYX0pCO4hH0dY7azL7\n0hng4nFz1DEWmePtLDdzsiuTYaJ0bIIWukPn0Gev1Iutfqewzo0YxaOsSU+zw0FY\nzMGsZx5mUIgMTZFci64oyEbOHVZ9PauuR3wWhex19y9JBIedSfWvorQXhEmMqAHH\n6RG4pbVp5Ewass7AJprYKkSY/3gtLPlGlsu3guc=\n-----END CERTIFICATE-----\n'
+OFFICIAL_HOSTS = (PRIMARY,)
 PUBLISHED = "https://shikishimayamato.github.io/takamatsu-taxi-signal/data/events.json"
 VENUE = "サンメッセ香川"
 AGENT = "TakamatsuTaxiSignal/1.1 (+official event metadata; twice-daily fetch)"
@@ -225,8 +225,20 @@ def tls_summary(exc: BaseException) -> str:
 
 
 def fetch_events(now: datetime) -> tuple[list[dict], list[str]]:
+    # certifiの信頼済みルートに発行元Sectigoの中間証明書を補い、通常のTLS検証を行う。
+    # 中間証明書の配布元: http://crt.sectigo.com/CloudSecureRSADomainValidationSecureServerCA3.crt
+    with TemporaryDirectory(prefix="sunmesse-ca-") as directory:
+        bundle = Path(directory) / "ca-bundle.pem"
+        bundle.write_bytes(Path(requests.certs.where()).read_bytes() + b"\n" + SUNMESSE_INTERMEDIATE.encode("ascii"))
+        with requests.Session() as session:
+            session.verify = str(bundle)
+            retry = requests.adapters.Retry(total=2, backoff_factor=1, status_forcelist=(502, 503, 504))
+            session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry))
+            return fetch_with_session(now, session)
+
+
+def fetch_with_session(now: datetime, session: requests.Session) -> tuple[list[dict], list[str]]:
     """公式HTTPSのSSL検証を維持したまま、同じ施設の別ホストを試す。"""
-    session = requests.Session()
     session.headers.update({"User-Agent": AGENT, "Accept-Language": "ja-JP,ja;q=0.9"})
     all_events: list[dict] = []
     failures: list[str] = []

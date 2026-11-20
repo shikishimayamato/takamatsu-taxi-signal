@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 from fetch_kagawa_bunkakaikan import get
 
 ORIGIN = "http://www.takamatsujyo.com"
-SCHEDULE_PATHS = ("/event2025newpage.html", "/yotei.htm")
+SCHEDULE_PATHS = ("/yotei.htm", "/event2025newpage.html")
 SCHEDULE = ORIGIN + SCHEDULE_PATHS[0]
 OFFICIAL_ORIGINS = (ORIGIN, "http://takamatsujyo.com")
 CITY = "https://www.city.takamatsu.kagawa.jp"
@@ -106,10 +106,27 @@ def parse_schedule(body: bytes, today: date) -> list[dict]:
 
 
 def read_official(url: str, limit: int, *, missing_ok: bool = False) -> bytes | None:
+    # requestsを先に使い、接続の一時失敗を再試行する。規則不明のまま取得を進めない。
+    try:
+        with requests.Session() as session:
+            retry = requests.adapters.Retry(total=2, backoff_factor=1, status_forcelist=(502, 503, 504))
+            session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retry))
+            response = session.get(url, headers={"User-Agent": AGENT}, timeout=(12, 20), allow_redirects=False)
+            if response.status_code == 404 and missing_ok:
+                return None
+            if response.status_code != 200:
+                raise ValueError(f"公式サイトHTTP {response.status_code}: {url}")
+            if len(response.content) > limit:
+                raise ValueError(f"公式ページの容量超過: {url}")
+            return response.content
+    except requests.RequestException:
+        # HTTP拒否は迂回せず、通信例外に限り別のHTTPクライアントで再確認。
+        pass
     try:
         response = subprocess.run(
             [
                 "curl",
+                "--ipv4",
                 "--silent",
                 "--show-error",
                 "--connect-timeout",
@@ -247,7 +264,10 @@ def owned(event: dict) -> bool:
 def previous_rows(session: requests.Session, now: datetime) -> tuple[list[dict], str | None]:
     try:
         payload = json.loads(get(session, PUBLISHED, 2_000_000))
-        source = next(s for s in payload["sources"] if s.get("venue") == VENUE)
+        source = next((s for s in payload.get("sources", []) if s.get("venue") == VENUE), {})
+        if not source.get("lastSuccessAt"):
+            print(f"{VENUE}: 前回の年間予定取得成功記録がないため、古いデータは再利用しません", file=sys.stderr)
+            return [], None
         last_ok = datetime.fromisoformat(source["lastSuccessAt"])
         if not timedelta(0) <= now - last_ok < timedelta(days=7):
             return [], None
