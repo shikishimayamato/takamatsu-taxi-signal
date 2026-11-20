@@ -118,6 +118,8 @@ jobs:
         run: python scripts/fetch_cruise.py
       - name: 玉藻公園の公式催事を取得して統合
         run: python scripts/fetch_tamamo_park.py
+      - name: 香川県立文書館の公式講座・展示を取得して統合
+        run: python scripts/fetch_kagawa_archives.py
       - name: 公開するファイルをデータと終了案内だけに限定
         run: |
           mkdir -p _site/data
